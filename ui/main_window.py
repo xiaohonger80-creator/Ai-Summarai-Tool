@@ -36,6 +36,7 @@ from ui.social_link_dialog import SocialLinkImportDialog
 from core.license_manager import get_active_license_status
 from ui.license_dialog import LicenseActivationDialog
 from ui.export_dialog import ExportVideoDialog
+from ui.workflow_view import WorkflowViewDialog
 
 
 class PipelineWorker(QThread):
@@ -397,8 +398,20 @@ class MainWindow(QMainWindow):
         if hasattr(self, "lbl_encoder"):
             self.lbl_encoder.setText(badge_text)
             self.lbl_encoder.setToolTip(tooltip_text)
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            try:
+                wf.update_hw_metrics(badge_text)
+            except Exception:
+                pass
 
     def closeEvent(self, event):
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            try:
+                wf.close()
+            except Exception:
+                pass
         if hasattr(self, "_update_check_timer"):
             try:
                 self._update_check_timer.stop()
@@ -594,6 +607,12 @@ class MainWindow(QMainWindow):
         self.act_tool_voice_clone = self.tools_menu.addAction("🎙️ ក្លូនសំឡេងមនុស្ស (Voice Clone)", self._open_voice_clone_studio)
         self.act_tool_caption = self.tools_menu.addAction("🔥 ចំណងជើង & Hook សង្ខេប (AI Social Caption)", self._open_ai_caption)
         self.act_tool_redo = self.tools_menu.addAction("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps)", self._open_reset_project_dialog)
+        self.workflow_submenu = self.tools_menu.addMenu("🔀 Workflow Views (មើលដំណើរការផ្ទាល់)")
+        self.workflow_submenu.addAction("🔀 Visual Pipeline Flow (Flowchart ផ្ទាល់)", lambda: self._open_workflow_view(0, False))
+        self.workflow_submenu.addAction("📊 Live Stage Metrics (ស្ថិតិដំណើរការ)", lambda: self._open_workflow_view(1, False))
+        self.workflow_submenu.addAction("📜 Live Process Log (កំណត់ត្រាផ្ទាល់)", lambda: self._open_workflow_view(2, False))
+        self.workflow_submenu.addSeparator()
+        self.workflow_submenu.addAction("📌 Mini Live Monitor (ផ្ទាំងតូចជាប់លើអេក្រង់)", lambda: self._open_workflow_view(0, True))
         self.tools_menu.addSeparator()
         self.act_tool_settings = self.tools_menu.addAction("⚙️ ការកំណត់ AI (Settings)", self._open_settings)
         self.btn_tools.setMenu(self.tools_menu)
@@ -837,6 +856,32 @@ class MainWindow(QMainWindow):
         step_layout.addStretch()
 
         # Ghost utility buttons
+        self.btn_workflow_views = QPushButton("🔀 Workflow Views ▾")
+        self.btn_workflow_views.setObjectName("BtnGlass")
+        self.btn_workflow_views.setFixedHeight(30)
+        self.btn_workflow_views.setStyleSheet(
+            "QPushButton { background: #141B29; border: 1.5px solid #38BDF8; border-radius: 6px; "
+            "padding: 2px 10px; color: #38BDF8; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #102C42; border-color: #7DD3FC; color: #FFFFFF; }"
+        )
+        self.btn_workflow_views.setToolTip("បើកផ្ទាំងមើលដំណើរការកម្មវិធីផ្ទាល់ Real-Time (Flowchart / Metrics / Console Log / Mini HUD)")
+        self.workflow_views_menu = QMenu(self)
+        self.workflow_views_menu.setStyleSheet("""
+            QMenu { background: #161920; color: #F4F6FB; border: 1px solid #343B4C; border-radius: 6px; padding: 4px; }
+            QMenu::item { padding: 6px 14px; border-radius: 4px; font-size: 11px; }
+            QMenu::item:selected { background: #202530; color: #00E5FF; }
+        """)
+        self.act_wf_flow = self.workflow_views_menu.addAction("🔀 Visual Pipeline Flow (Flowchart ផ្ទាល់)", lambda: self._open_workflow_view(0, False))
+        self.act_wf_metrics = self.workflow_views_menu.addAction("📊 Live Stage Metrics (តារាងស្ថិតិផ្ទាល់)", lambda: self._open_workflow_view(1, False))
+        self.act_wf_log = self.workflow_views_menu.addAction("📜 Live Process Log (កំណត់ត្រា Real-Time)", lambda: self._open_workflow_view(2, False))
+        self.workflow_views_menu.addSeparator()
+        self.act_wf_mini = self.workflow_views_menu.addAction("📌 Mini Live Monitor (ផ្ទាំងតូចជាប់លើអេក្រង់)", lambda: self._open_workflow_view(0, True))
+        self.act_wf_auto = self.workflow_views_menu.addAction("⚡ Auto-Open Workflow ពេលចាប់ផ្តើមដំណើរការ")
+        self.act_wf_auto.setCheckable(True)
+        self.act_wf_auto.setChecked(False)
+        self.btn_workflow_views.setMenu(self.workflow_views_menu)
+        step_layout.addWidget(self.btn_workflow_views)
+
         self.btn_import_social = QPushButton("🔗 Social Link")
         self.btn_import_social.setObjectName("BtnGlass")
         self.btn_import_social.setToolTip("នាំចូលវីដេអូពី TikTok, Douyin, YouTube, FB, IG (Paste Link)")
@@ -1285,6 +1330,8 @@ class MainWindow(QMainWindow):
             self.status_lbl.setText(tr(L, "status_loaded", name=Path(self.video_path).name))
 
         self.btn_open.setText(tr(L, "btn_open"))
+        if hasattr(self, "btn_workflow_views"):
+            self.btn_workflow_views.setText("🔀 មើលដំណើរការ ▾" if L == "kh" else "🔀 Workflow Views ▾")
         self.btn_import_social.setText("🔗 Social Link")
         if hasattr(self, "btn_tools"):
             self.btn_tools.setText("🛠️ Tools ▾" if L != "kh" else "🛠️ ឧបករណ៍ ▾")
@@ -1952,13 +1999,86 @@ class MainWindow(QMainWindow):
             self.btn_dub.setText("បង្កើតសំឡេងខ្មែរ" if kh else "Generate Voice")
             self.btn_dub.setStyleSheet(style_pending)
 
-    def _run_worker(self, fn, on_complete_extra=None):
+    def _ensure_workflow_dialog(self) -> WorkflowViewDialog:
+        if getattr(self, "_workflow_dialog", None) is None:
+            self._workflow_dialog = WorkflowViewDialog(lang=self.lang, parent=self)
+            self._workflow_dialog.stop_requested.connect(self._stop_worker)
+            self._workflow_dialog.stage_triggered.connect(self._on_workflow_stage_clicked)
+            if hasattr(self, "lbl_encoder"):
+                self._workflow_dialog.update_hw_metrics(self.lbl_encoder.text())
+        return self._workflow_dialog
+
+    def _open_workflow_view(self, tab_idx: int = 0, compact: bool = False):
+        wf = self._ensure_workflow_dialog()
+        wf.lang = self.lang
+        self._sync_workflow_snapshot()
+        wf.set_view_mode(tab_index=tab_idx, compact=compact)
+        wf.show()
+        wf.raise_()
+        wf.activateWindow()
+
+    def _on_workflow_stage_clicked(self, stage_key: str):
+        if stage_key == "input":
+            self._browse_video()
+        elif stage_key == "scan":
+            self._run_extract()
+        elif stage_key == "translate":
+            self._run_translate()
+        elif stage_key == "dub":
+            self._run_dub_voice()
+        elif stage_key == "fx":
+            self._open_anti_copyright_dialog()
+        elif stage_key == "export":
+            self._run_export_video()
+
+    def _sync_workflow_snapshot(self, exported_name: str = ""):
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is None:
+            return
+        try:
+            proj_name = Path(self.video_path).name if self.video_path else ""
+            segs = self.db.get_segments(self.project_id) if self.project_id else []
+            total_s = len(segs)
+            trans_s = sum(1 for s in segs if (s.get("kh_text") or "").strip())
+            dub_s = sum(1 for s in segs if s.get("tts_audio_path") and Path(s["tts_audio_path"]).exists())
+            edits = self.db.get_project_edits(self.project_id) if self.project_id else {}
+            fx_bits = []
+            if edits.get("lut_preset") and edits.get("lut_preset") != "none":
+                fx_bits.append(f"LUT:{edits['lut_preset']}")
+            if edits.get("anti_copyright_enabled"):
+                fx_bits.append(f"AC:{edits.get('anti_copyright_level', 'medium')}")
+            if edits.get("auto_timed_blur"):
+                fx_bits.append("TimedBlur")
+            if edits.get("keep_bgm_only"):
+                fx_bits.append("BGM-Only")
+            if edits.get("hd_upscale_enabled"):
+                fx_bits.append("HD-Up")
+            wf.sync_project_snapshot(
+                project_name=proj_name,
+                video_info=f"Project #{self.project_id}" if self.project_id else "",
+                total_segs=total_s,
+                translated_segs=trans_s,
+                dubbed_segs=dub_s,
+                fx_summary=" • ".join(fx_bits),
+                exported_name=exported_name,
+            )
+        except Exception:
+            pass
+
+    def _run_worker(self, fn, on_complete_extra=None, stage_key: str = ""):
         if self.worker and self.worker.isRunning():
             return
         self._cancel_event.clear()
         self.pbar.setValue(5)
         self.btn_stop.setEnabled(True)
         self.btn_stop.setVisible(True)
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is None and hasattr(self, "act_wf_auto") and self.act_wf_auto.isChecked():
+            self._open_workflow_view(0, False)
+            wf = self._workflow_dialog
+        if wf is not None:
+            self._sync_workflow_snapshot()
+            wf.on_stage_started(stage_key, "កំពុងចាប់ផ្តើមដំណើរការ...")
         self.worker = PipelineWorker(fn)
         self.worker.progress.connect(self._on_worker_progress)
         self.worker.finished_ok.connect(lambda msg: self._on_done(msg, on_complete_extra))
@@ -1978,6 +2098,9 @@ class MainWindow(QMainWindow):
         self.pbar.setValue(pct)
         self.status_lbl.setText(msg)
         self._update_table_cells_live()
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            wf.on_stage_progress(pct, msg)
 
     def _on_done(self, msg: str, extra_fn=None):
         self.btn_stop.setEnabled(False)
@@ -1988,6 +2111,10 @@ class MainWindow(QMainWindow):
             extra_fn()
         self._update_button_states()
         self._ensure_preview_visible()
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            wf.on_stage_finished(msg)
+            self._sync_workflow_snapshot()
 
     def _on_stopped(self, msg: str):
         self.btn_stop.setEnabled(False)
@@ -1995,6 +2122,10 @@ class MainWindow(QMainWindow):
         self._refresh_table()
         self._update_button_states()
         self._ensure_preview_visible()
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            wf.on_stage_stopped(msg)
+            self._sync_workflow_snapshot()
 
     def _on_error(self, err: str):
         self.btn_stop.setEnabled(False)
@@ -2003,6 +2134,10 @@ class MainWindow(QMainWindow):
         self._refresh_table()
         self._update_button_states()
         self._ensure_preview_visible()
+        wf = getattr(self, "_workflow_dialog", None)
+        if wf is not None:
+            wf.on_stage_failed(err)
+            self._sync_workflow_snapshot()
         QMessageBox.critical(self, "Error", err)
 
     def _ensure_preview_visible(self):
@@ -3913,6 +4048,20 @@ class MainWindow(QMainWindow):
             preview_video_path=preview_path,
             db=self.db,
             lang=self.lang,
+        )
+        dlg.workflow_progress.connect(
+            lambda p, m: self._workflow_dialog.on_stage_progress(p, m, "export")
+            if getattr(self, "_workflow_dialog", None) else None
+        )
+        dlg.workflow_finished.connect(
+            lambda m: (
+                self._workflow_dialog.on_stage_finished(m, "export"),
+                self._sync_workflow_snapshot(exported_name=m),
+            ) if getattr(self, "_workflow_dialog", None) else None
+        )
+        dlg.workflow_failed.connect(
+            lambda e: self._workflow_dialog.on_stage_failed(e)
+            if getattr(self, "_workflow_dialog", None) else None
         )
         dlg.exec()
 

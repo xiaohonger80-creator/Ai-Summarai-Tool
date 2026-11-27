@@ -615,7 +615,8 @@ class DeepTestRunner:
         app.processEvents()
         assert len(progress_seen) >= 1 and len(stopped_seen) >= 1, f"Cancel signal missing: prog={progress_seen}, stop={stopped_seen}"
 
-        # Verify MainWindow, SettingsDialog, MultiClipComposerDialog instantiate cleanly
+        # Verify MainWindow, SettingsDialog, MultiClipComposerDialog & WorkflowViewDialog instantiate cleanly
+        from ui.workflow_view import WorkflowViewDialog
         db = Database(self.tmp_dir / "ui_test.db")
         win = MainWindow()
         win.show()
@@ -623,17 +624,29 @@ class DeepTestRunner:
         sd.show()
         mcd = MultiClipComposerDialog("kh", has_active_project=True)
         mcd.show()
+        wf = WorkflowViewDialog(lang="kh")
+        wf.sync_project_snapshot("Ep01.mp4", "1080p", 20, 20, 15, "LUT:drama_glow • TimedBlur")
+        wf.on_stage_started("dub", "Generating Khmer TTS 16/20...")
+        wf.on_stage_progress(80, "Generating Khmer TTS 16/20...", "dub")
+        wf.on_stage_finished("Dubbing complete!", "dub")
+        wf.set_view_mode(1, False)
+        wf.set_view_mode(2, False)
+        wf.set_view_mode(0, True)
+        wf.set_view_mode(0, False)
+        wf.show()
         app.processEvents()
+        wf.close()
         sd.close()
         mcd.close()
         win.close()
         app.processEvents()
+        wf.deleteLater()
         sd.deleteLater()
         mcd.deleteLater()
         win.deleteLater()
         app.processEvents()
         db.close()
-        return f"QThread progress ({len(progress_seen)} events) + Stop cancel + MainWindow/Dialogs clean"
+        return f"QThread progress ({len(progress_seen)} events) + Stop cancel + MainWindow/Dialogs/WorkflowView clean"
 
     def run_all(self) -> bool:
         print("=" * 72)

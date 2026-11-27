@@ -50,6 +50,10 @@ class ExportWorker(QThread):
 
 
 class ExportVideoDialog(QDialog):
+    workflow_progress = Signal(int, str)
+    workflow_finished = Signal(str)
+    workflow_failed = Signal(str)
+
     def __init__(
         self,
         parent=None,
@@ -726,6 +730,7 @@ class ExportVideoDialog(QDialog):
     def _on_export_progress(self, val: int, msg: str):
         self.progress_bar.setValue(val)
         self.lbl_status.setText(msg)
+        self.workflow_progress.emit(val, msg)
 
     def _on_export_finished(self, out_file: str):
         self.exported_file_path = out_file
@@ -737,6 +742,7 @@ class ExportVideoDialog(QDialog):
         self.btn_start.setText("✅ Export បានជោគជ័យ!")
 
         self.box_results.setVisible(True)
+        self.workflow_finished.emit(f"Exported: {Path(out_file).name}")
 
     def _on_export_failed(self, err_msg: str):
         self.progress_bar.setVisible(False)
@@ -745,9 +751,11 @@ class ExportVideoDialog(QDialog):
         if was_cancelled:
             self.lbl_status.setText("⏹ បានបញ្ឈប់ការ Export ដោយសុវត្ថិភាព។")
             self.lbl_status.setStyleSheet("color: #F59E0B; font-size: 11px;")
+            self.workflow_failed.emit("Export cancelled by user")
             return
         self.lbl_status.setText(f"❌ បរាជ័យក្នុងការ Export: {err_msg}")
         self.lbl_status.setStyleSheet("color: #EF4444; font-size: 11px;")
+        self.workflow_failed.emit(err_msg)
         QMessageBox.critical(self, "Export Error", f"មានបញ្ហាក្នុងការ Render វីដេអូ:\n{err_msg}")
 
     def _open_output_folder(self):
