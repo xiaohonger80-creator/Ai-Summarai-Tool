@@ -17,6 +17,7 @@ hiddenimports = [
     'sqlite3',
     'requests',
     'cv2',
+    'numpy',
 ]
 
 for pkg in ('rapidocr', 'faster_whisper', 'edge_tts', 'ctranslate2', 'onnxruntime', 'cv2'):

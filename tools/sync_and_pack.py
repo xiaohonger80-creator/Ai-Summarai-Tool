@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-APP_VERSION = "1.5.10"
+APP_VERSION = "1.6.0"
 GITHUB_OWNER = "xiaohonger80-creator"
 GITHUB_REPO = "Ai-Summarai-Tool"
 GITHUB_BRANCH = "main"

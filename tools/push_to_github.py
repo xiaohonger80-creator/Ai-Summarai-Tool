@@ -57,7 +57,7 @@ def read_current_version() -> str:
         m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', UPDATER_PY.read_text(encoding="utf-8"))
         if m:
             return m.group(1)
-    return "1.5.9"
+    return "1.6.0"
 
 
 def bump_version(ver: str) -> str:
