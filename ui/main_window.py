@@ -18,7 +18,7 @@ from core.long_video_engine import LongVideoStreamEngine
 from core.media_engine import MediaEngine
 from core.srt_handler import SRTHandler
 from ui.i18n import tr
-from ui.theme import THEMES, build_stylesheet
+from ui.theme import THEMES, build_stylesheet, apply_app_palette
 from ui.video_editor import VideoPreviewEditor
 from ui.batch_dialog import BatchDubbingDialog
 from ui.timeline_widget import CapCutTimelineWidget
@@ -379,6 +379,10 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         self._build_ui()
+        try:
+            apply_app_palette(QApplication.instance(), self.db.get_setting("ui_theme", "capcut"))
+        except Exception:
+            pass
         self._apply_language()
         self._probe_encoder_async()
 
@@ -1306,7 +1310,9 @@ class MainWindow(QMainWindow):
 
     def _set_theme(self, theme_key: str):
         self.db.set_setting("ui_theme", theme_key)
-        QApplication.instance().setStyleSheet(build_stylesheet(theme_key))
+        app = QApplication.instance()
+        apply_app_palette(app, theme_key)
+        app.setStyleSheet(build_stylesheet(theme_key))
 
     def _toggle_language(self):
         self.lang = "kh" if self.lang == "en" else "en"

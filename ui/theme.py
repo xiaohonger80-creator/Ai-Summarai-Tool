@@ -83,6 +83,30 @@ THEMES = {
 THEMES["capcut"] = THEMES["obsidian"]
 
 
+def apply_app_palette(app, theme_key: str = "obsidian"):
+    """Applies matching QPalette so Qt 6 popup QListViews (QComboBox) NEVER render white-on-white on Windows."""
+    if app is None:
+        return
+    from PySide6.QtGui import QPalette, QColor
+    t = THEMES.get(theme_key, THEMES["obsidian"])
+    is_light = theme_key == "daylight"
+    pal = QPalette()
+    pal.setColor(QPalette.Window, QColor(t["bg_canvas"]))
+    pal.setColor(QPalette.WindowText, QColor(t["text_primary"]))
+    pal.setColor(QPalette.Base, QColor(t["bg_surface"]))
+    pal.setColor(QPalette.AlternateBase, QColor(t["bg_elevated"]))
+    pal.setColor(QPalette.ToolTipBase, QColor(t["bg_surface"]))
+    pal.setColor(QPalette.ToolTipText, QColor(t["text_primary"]))
+    pal.setColor(QPalette.Text, QColor(t["text_primary"]))
+    pal.setColor(QPalette.Button, QColor(t["bg_elevated"]))
+    pal.setColor(QPalette.ButtonText, QColor(t["text_primary"]))
+    pal.setColor(QPalette.BrightText, QColor("#000000" if is_light else "#FFFFFF"))
+    pal.setColor(QPalette.Highlight, QColor(t["accent_primary"]))
+    pal.setColor(QPalette.HighlightedText, QColor("#FFFFFF" if is_light else "#0B0D10"))
+    pal.setColor(QPalette.PlaceholderText, QColor(t["text_secondary"]))
+    app.setPalette(pal)
+
+
 def build_stylesheet(theme_key: str = "obsidian") -> str:
     t = THEMES.get(theme_key, THEMES["obsidian"])
     is_light = theme_key == "daylight"
@@ -480,15 +504,38 @@ def build_stylesheet(theme_key: str = "obsidian") -> str:
         border-color: {t['accent_primary']};
     }}
 
-    QComboBox QAbstractItemView {{
+    QComboBoxPrivateContainer {{
+        background-color: {t['bg_surface']};
+        border: 1px solid {t['border_subtle']};
+        border-radius: 6px;
+    }}
+
+    QComboBox QAbstractItemView, QComboBox QListView {{
         background-color: {t['bg_surface']};
         color: {t['text_primary']};
         border: 1px solid {t['border_subtle']};
         border-radius: 6px;
         padding: 4px;
-        selection-background-color: {t['selection']};
-        selection-color: {t['accent_primary']};
+        selection-background-color: {t['accent_primary']};
+        selection-color: #0B0D10;
         outline: none;
+    }}
+
+    QComboBox QAbstractItemView::item, QComboBox QListView::item {{
+        background-color: {t['bg_surface']};
+        color: {t['text_primary']};
+        padding: 6px 10px;
+        min-height: 22px;
+        border-radius: 4px;
+    }}
+
+    QComboBox QAbstractItemView::item:hover,
+    QComboBox QAbstractItemView::item:selected,
+    QComboBox QListView::item:hover,
+    QComboBox QListView::item:selected {{
+        background-color: {t['accent_primary']};
+        color: #0B0D10;
+        font-weight: 700;
     }}
 
     /* =========================================================================

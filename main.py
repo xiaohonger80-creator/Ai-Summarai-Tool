@@ -58,7 +58,7 @@ if getattr(sys, "frozen", False):
 
 from core.database import Database
 from ui.main_window import MainWindow
-from ui.theme import build_stylesheet
+from ui.theme import build_stylesheet, apply_app_palette
 from ui.license_dialog import enforce_license_or_exit
 
 
@@ -107,6 +107,7 @@ def main():
 
     db = Database()
     saved_theme = db.get_setting("ui_theme", "capcut")
+    apply_app_palette(app, saved_theme)
     app.setStyleSheet(build_stylesheet(saved_theme))
 
     bundle_dir = Path(getattr(sys, "_MEIPASS", install_dir))

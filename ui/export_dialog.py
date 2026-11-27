@@ -18,13 +18,13 @@ import threading
 import traceback
 from pathlib import Path
 from PySide6.QtCore import Qt, QUrl, QTimer, QThread, Signal
-from PySide6.QtGui import QIcon, QFont, QColor
+from PySide6.QtGui import QIcon, QFont, QColor, QPalette
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QComboBox, QLineEdit, QProgressBar, QFileDialog, QFrame, QMessageBox,
-    QSlider, QSizePolicy, QCheckBox, QScrollArea
+    QSlider, QSizePolicy, QCheckBox, QScrollArea, QListView
 )
 from core.media_engine import MediaEngine
 from core.lut_presets import LUT_PRESETS
@@ -131,12 +131,34 @@ class ExportVideoDialog(QDialog):
                 border: none;
                 width: 24px;
             }
-            QComboBox QAbstractItemView {
+            QComboBoxPrivateContainer {
+                background-color: #161920;
+                border: 1px solid #343B4C;
+                border-radius: 6px;
+            }
+            QComboBox QAbstractItemView, QComboBox QListView {
                 background-color: #161920;
                 color: #F4F6FB;
-                selection-background-color: #202530;
-                selection-color: #00E5FF;
+                selection-background-color: #00E5FF;
+                selection-color: #0B0D10;
                 border: 1px solid #343B4C;
+                outline: none;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView::item, QComboBox QListView::item {
+                background-color: #161920;
+                color: #F4F6FB;
+                padding: 6px 10px;
+                min-height: 24px;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover,
+            QComboBox QAbstractItemView::item:selected,
+            QComboBox QListView::item:hover,
+            QComboBox QListView::item:selected {
+                background-color: #00E5FF;
+                color: #0B0D10;
+                font-weight: 700;
             }
             QLineEdit {
                 background-color: #181C24;
@@ -170,7 +192,33 @@ class ExportVideoDialog(QDialog):
         self.is_portrait = (self.src_h > self.src_w)
 
         self._build_ui()
+        self._apply_dark_combo_popups()
         self._init_preview_player()
+
+    def _apply_dark_combo_popups(self):
+        """Forces dark QListView + QPalette on every QComboBox popup so Windows never paints a white menu."""
+        pal = QPalette()
+        pal.setColor(QPalette.Window, QColor("#161920"))
+        pal.setColor(QPalette.Base, QColor("#161920"))
+        pal.setColor(QPalette.AlternateBase, QColor("#1C212C"))
+        pal.setColor(QPalette.Text, QColor("#F4F6FB"))
+        pal.setColor(QPalette.WindowText, QColor("#F4F6FB"))
+        pal.setColor(QPalette.Highlight, QColor("#00E5FF"))
+        pal.setColor(QPalette.HighlightedText, QColor("#0B0D10"))
+        popup_qss = (
+            "QListView { background-color: #161920; color: #F4F6FB; border: 1px solid #343B4C; outline: none; padding: 3px; }"
+            "QListView::item { background-color: #161920; color: #F4F6FB; padding: 6px 10px; min-height: 22px; border-radius: 4px; }"
+            "QListView::item:hover, QListView::item:selected { background-color: #00E5FF; color: #0B0D10; font-weight: 700; }"
+        )
+        for cb in (
+            self.cb_resolution, self.cb_quality, self.cb_fps,
+            self.cb_encoder, self.cb_lut_preset, self.cb_anti_copyright_level,
+        ):
+            lv = QListView(cb)
+            lv.setPalette(pal)
+            lv.setStyleSheet(popup_qss)
+            cb.setView(lv)
+            cb.setPalette(pal)
 
     def _build_ui(self):
         root = QVBoxLayout(self)

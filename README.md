@@ -1,6 +1,6 @@
 # Ai Summarai Studio — Official GitHub Update Server
 
-Official repository and in-app auto-update distribution server for **Ai Summarai Studio** (`v1.6.4`).
+Official repository and in-app auto-update distribution server for **Ai Summarai Studio** (`v1.6.5`).
 
 ## Auto-Update Endpoints
 - **Manifest (`version.json`)**:

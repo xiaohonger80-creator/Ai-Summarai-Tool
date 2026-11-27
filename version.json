@@ -1,11 +1,11 @@
 {
-  "version": "1.6.4",
-  "app_version": "1.6.4",
+  "version": "1.6.5",
+  "app_version": "1.6.5",
   "provider": "github",
   "release_date": "2026-11-27",
   "repo_url": "https://github.com/xiaohonger80-creator/Ai-Summarai-Tool",
   "manifest_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/version.json",
   "download_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/release_output/AiSummarai_Update.zip",
-  "changelog": "• 🔀 Real-Time Workflow Views Menu (មើលដំណើរការផ្ទាល់): បន្ថែមម៉ឺនុយតាមដានដំណើរការ ៤ ទម្រង់ (Animated Visual Flowchart 6 ដំណាក់កាល, Live Stage Metrics, Real-Time Console Log, និង Mini Always-on-Top HUD) ដោយភ្ជាប់ផ្ទាល់ជាមួយ Scan/Translate/TTS/Anti-CR/Export & CPU-RAM-GPU។\n• 🔢 Hot-Update Disk Loader + Export Studio Scroll Fix (v1.6.3–v1.6.4) + Auto 0-9 Rollover Versioning។",
-  "file_size_kb": 1419.8
+  "changelog": "• 🎨 Fix Dark Dropdown Readability (v1.6.5): ជួសជុលបញ្ហា Dropdown Popup ពណ៌សបាត់អក្សរ ទូទាំងកម្មវិធី និងក្នុង Video Export Studio (Dark QPalette + QListView + High-Contrast Cyan Highlight)។\n• 🔀 Real-Time Workflow Views (Flowchart, Metrics, Live Log, Mini HUD) + Auto 0-9 Rollover Versioning។",
+  "file_size_kb": 1420.6
 }
