@@ -135,7 +135,79 @@ class SettingsDialog(QDialog):
         saved_model = self.db.get_setting("model", "gemini-3.1-flash-lite")
         if saved_model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "google-free", ""):
             saved_model = "gemini-3.1-flash-lite"
-        self.model_name = QLineEdit(saved_model)
+
+        # AI Models Dropdown: Latest & Recommended Models (Gemini, Local Ollama, OpenAI, Groq)
+        RECOMMENDED_MODELS = [
+            ("✨ gemini-3.1-flash-lite (⭐ Recommended / ថ្មីបំផុត - លឿន & សន្សំ Quota)", "gemini-3.1-flash-lite"),
+            ("⚡ gemini-3.8-flash (High Speed & Accuracy / ឆ្លាតវៃ & គុណភាពខ្ពស់)", "gemini-3.8-flash"),
+            ("🧠 gemini-3.7-flash (Deep Reasoning & Drama / វិភាគស៊ីជម្រៅ)", "gemini-3.7-flash"),
+            ("🦙 qwen2.5:7b (⭐ Recommended Local Ollama for Chinese / ម៉ូដែលចិន-ខ្មែរល្អដាច់គេ)", "qwen2.5:7b"),
+            ("🦙 qwen2.5:3b (Fast & Lightweight Local / ស្រាលសម្រាប់ PC ខ្សោយ)", "qwen2.5:3b"),
+            ("🦙 qwen2.5:14b (Studio High Accuracy / ភាពសុក្រិតខ្ពស់)", "qwen2.5:14b"),
+            ("💎 gemma2:9b (Google Local Ollama / ម៉ូដែល Google ក្នុងស្រុក)", "gemma2:9b"),
+            ("🦙 llama3.2:3b (Ultra Low-RAM Local / ស្រាលបំផុត)", "llama3.2:3b"),
+            ("🚀 gpt-4o-mini (OpenAI Fast & Cost-Effective)", "gpt-4o-mini"),
+            ("👑 gpt-4o (OpenAI Flagship Studio Quality)", "gpt-4o"),
+            ("⚡ llama-3.3-70b-versatile (Groq Ultra Fast)", "llama-3.3-70b-versatile"),
+            ("🌐 google-free (Free Google Translate - No API Key Needed)", "google-free"),
+        ]
+
+        self.model_name = QComboBox()
+        self.model_name.setEditable(True)
+        self.model_name.setInsertPolicy(QComboBox.NoInsert)
+        self.model_name.setFixedHeight(30)
+        self.model_name.setStyleSheet("""
+            QComboBox {
+                background: #161920;
+                border: 1.5px solid #343B4C;
+                border-radius: 6px;
+                padding: 3px 28px 3px 10px;
+                color: #F4F6FB;
+                font-size: 11.5px;
+                font-weight: 600;
+            }
+            QComboBox:focus, QComboBox:hover {
+                border-color: #00E5FF;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 24px;
+                border-left: 1px solid #252A36;
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
+                background: #1A1F2C;
+            }
+            QComboBox::down-arrow {
+                width: 0;
+                height: 0;
+                border-left: 4.5px solid transparent;
+                border-right: 4.5px solid transparent;
+                border-top: 5.5px solid #00E5FF;
+            }
+            QComboBox QAbstractItemView {
+                background: #161920;
+                color: #F4F6FB;
+                selection-background-color: #00E5FF;
+                selection-color: #0B0D10;
+                border: 1px solid #343B4C;
+                outline: none;
+                padding: 4px;
+            }
+        """)
+        for label, mid in RECOMMENDED_MODELS:
+            self.model_name.addItem(label, mid)
+
+        matched_idx = -1
+        for i in range(self.model_name.count()):
+            if self.model_name.itemData(i) == saved_model:
+                matched_idx = i
+                break
+        if matched_idx >= 0:
+            self.model_name.setCurrentIndex(matched_idx)
+        else:
+            self.model_name.insertItem(0, f"⚙️ {saved_model} (Custom / Saved)", saved_model)
+            self.model_name.setCurrentIndex(0)
 
         self.asr_combo = QComboBox()
         self.asr_combo.addItems(["Local Whisper (int8 CPU - Low RAM)", "Cloud Whisper API"])
@@ -202,27 +274,47 @@ class SettingsDialog(QDialog):
     def _on_pool_keys_saved(self, keys_str: str):
         self.api_key.setPlainText(keys_str)
 
+    def _get_current_model(self) -> str:
+        idx = self.model_name.currentIndex()
+        if idx >= 0:
+            data = self.model_name.itemData(idx)
+            if data:
+                return str(data).strip()
+        raw = self.model_name.currentText().strip()
+        if raw:
+            token = re.split(r"[\s\(\[\{]+", raw)[0].strip()
+            token = re.sub(r"^[^\w\-:\.]+", "", token)
+            return token or raw
+        return "gemini-3.1-flash-lite"
+
+    def _set_model_by_id(self, model_id: str):
+        for i in range(self.model_name.count()):
+            if self.model_name.itemData(i) == model_id:
+                self.model_name.setCurrentIndex(i)
+                return
+        self.model_name.setEditText(model_id)
+
     def _apply_preset(self, idx: int):
         if idx == 1:
             self.api_url.setText("google-free")
             self.api_key.clear()
-            self.model_name.setText("google-free")
+            self._set_model_by_id("google-free")
         elif idx == 2:
             self.api_url.setText("http://localhost:11434/v1")
             self.api_key.clear()
-            self.model_name.setText("qwen2.5:3b")
+            self._set_model_by_id("qwen2.5:7b")
         elif idx == 3:
             self.api_url.setText("https://api.openai.com/v1")
-            self.model_name.setText("gpt-4o-mini")
+            self._set_model_by_id("gpt-4o-mini")
         elif idx == 4:
             self.api_url.setText("https://generativelanguage.googleapis.com/v1beta/openai/")
-            self.model_name.setText("gemini-3.1-flash-lite")
+            self._set_model_by_id("gemini-3.1-flash-lite")
 
     def _save(self):
         try:
             self.db.set_setting("api_url", self.api_url.text().strip())
             self.db.set_api_keys(self.api_key.toPlainText())
-            self.db.set_setting("model", self.model_name.text().strip())
+            self.db.set_setting("model", self._get_current_model())
             self.db.set_setting("asr_mode", str(self.asr_combo.currentIndex()))
             self.db.set_setting("kh_voice_label", self.voice_combo.currentText())
             self.db.set_setting("ocr_y_pct", str(self.ocr_y_spin.value()))
@@ -581,6 +673,19 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.lbl_encoder)
 
         top_layout.addStretch()
+
+        # Direct Workflow View Button on Top Bar (1-Click Access)
+        self.btn_top_workflow = QPushButton("🔀 មើលដំណើរការ" if self.lang == "kh" else "🔀 Workflow View")
+        self.btn_top_workflow.setObjectName("BtnGlass")
+        self.btn_top_workflow.setFixedHeight(30)
+        self.btn_top_workflow.setStyleSheet(
+            "QPushButton { background: #141B29; border: 1.5px solid #00E5FF; border-radius: 6px; "
+            "padding: 2px 12px; color: #00E5FF; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #083344; border-color: #38BDF8; color: #FFFFFF; }"
+        )
+        self.btn_top_workflow.setToolTip("បើកផ្ទាំងមើលដំណើរការ Real-Time Workflow Views (Flowchart / Metrics / Live Logs)")
+        self.btn_top_workflow.clicked.connect(lambda: self._open_workflow_view(0, False))
+        top_layout.addWidget(self.btn_top_workflow)
 
         # 1B. Center Group: Consolidated Tools Menu Button
         self.btn_tools = QPushButton("🛠️ Tools ▾" if self.lang != "kh" else "🛠️ ឧបករណ៍ ▾")
@@ -1336,6 +1441,8 @@ class MainWindow(QMainWindow):
             self.status_lbl.setText(tr(L, "status_loaded", name=Path(self.video_path).name))
 
         self.btn_open.setText(tr(L, "btn_open"))
+        if hasattr(self, "btn_top_workflow"):
+            self.btn_top_workflow.setText("🔀 មើលដំណើរការ" if L == "kh" else "🔀 Workflow View")
         if hasattr(self, "btn_workflow_views"):
             self.btn_workflow_views.setText("🔀 មើលដំណើរការ ▾" if L == "kh" else "🔀 Workflow Views ▾")
         self.btn_import_social.setText("🔗 Social Link")

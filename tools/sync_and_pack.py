@@ -69,7 +69,7 @@ def main(target_version: str = "", bump: bool = False, changelog: str = ""):
     upd_path = ROOT / "core" / "updater.py"
     if upd_path.exists():
         t = upd_path.read_text(encoding="utf-8")
-        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1.6.9"', t, count=1)
+        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1.7.1"', t, count=1)
         upd_path.write_text(t, encoding="utf-8")
         print(f"[OK] Updated core/updater.py to v{app_version}")
 
@@ -169,6 +169,33 @@ def main(target_version: str = "", bump: bool = False, changelog: str = ""):
         shutil.copy2(v_path, dist_dir / "version.json")
         shutil.copy2(cfg_path, dist_dir / "updater_config.json")
         print("[OK] Synced updated files to dist/AiSummarai/")
+
+    # 6B. Sync to installed program directory if present
+    installed_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ai Summarai"
+    if installed_dir.exists():
+        for target_base in [installed_dir, installed_dir / "_internal"]:
+            t_core = target_base / "core"
+            t_core.mkdir(parents=True, exist_ok=True)
+            for cf in (ROOT / "core").glob("*.py"):
+                shutil.copy2(cf, t_core / cf.name)
+            t_ui = target_base / "ui"
+            t_ui.mkdir(parents=True, exist_ok=True)
+            for uf in (ROOT / "ui").glob("*.py"):
+                shutil.copy2(uf, t_ui / uf.name)
+        # copy config and standalone scripts
+        for fn in ["version.json", "updater_config.json", "verify_setup.py"]:
+            sp = ROOT / fn
+            if sp.exists():
+                shutil.copy2(sp, installed_dir / fn)
+        # sync data files if any
+        if (ROOT / "data").exists():
+            (installed_dir / "data").mkdir(parents=True, exist_ok=True)
+            for df in (ROOT / "data").glob("*.json"):
+                shutil.copy2(df, installed_dir / "data" / df.name)
+        # purge __pycache__ in installed dir
+        for cache_dir in installed_dir.rglob("__pycache__"):
+            shutil.rmtree(cache_dir, ignore_errors=True)
+        print("[OK] Synced updated files to installed App & _internal, purged __pycache__")
 
     # 7. Repack release_output/AiSummarai_Update.zip
     out_dir = ROOT / "release_output"
