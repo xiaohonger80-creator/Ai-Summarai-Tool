@@ -95,9 +95,10 @@ class PackageUpdaterDialog(QDialog):
 
         # 1. Header Info Card
         header = QFrame()
+        header.setObjectName("UpdateHeaderCard")
         header.setStyleSheet(
-            "background: rgba(16, 185, 129, 0.08); "
-            "border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px;"
+            "QFrame#UpdateHeaderCard { background: rgba(16, 185, 129, 0.08); "
+            "border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px; }"
         )
         h_layout = QVBoxLayout(header)
         h_layout.setContentsMargins(8, 8, 8, 8)
@@ -107,7 +108,7 @@ class PackageUpdaterDialog(QDialog):
             f"🚀 Ai Summarai Studio — កំណែបច្ចុប្បន្ន៖ v{APP_VERSION}" if kh
             else f"🚀 Ai Summarai Studio — Current Version: v{APP_VERSION}"
         )
-        lbl_title.setStyleSheet("font-size: 15px; font-weight: 800; color: #10B981;")
+        lbl_title.setStyleSheet("font-size: 15px; font-weight: 800; color: #10B981; border: none; background: transparent;")
 
         lbl_desc = QLabel(
             "អាប់ដេតមុខងារ និងកូដថ្មីភ្លាមៗដោយស្វ័យប្រវត្តិពី GitHub "
@@ -116,7 +117,7 @@ class PackageUpdaterDialog(QDialog):
             "100% of your projects and settings are preserved!"
         )
         lbl_desc.setWordWrap(True)
-        lbl_desc.setStyleSheet("color: #8E95A5; font-size: 12px; line-height: 1.4;")
+        lbl_desc.setStyleSheet("color: #8E95A5; font-size: 12px; line-height: 1.4; border: none; background: transparent;")
 
         h_layout.addWidget(lbl_title)
         h_layout.addWidget(lbl_desc)
@@ -125,8 +126,9 @@ class PackageUpdaterDialog(QDialog):
         # 2. GitHub Server Status Card
         repo_slug = self._get_repo_display()
         server_card = QFrame()
+        server_card.setObjectName("UpdateServerCard")
         server_card.setStyleSheet(
-            "background: #12151B; border: 1px solid #252A36; border-radius: 8px; padding: 12px;"
+            "QFrame#UpdateServerCard { background: #12151B; border: 1px solid #252A36; border-radius: 8px; padding: 12px; }"
         )
         s_layout = QVBoxLayout(server_card)
         s_layout.setContentsMargins(10, 8, 10, 8)
@@ -136,7 +138,7 @@ class PackageUpdaterDialog(QDialog):
             f"🐙 ប្រភពទាញយក៖ GitHub Official Server ({repo_slug})" if kh
             else f"🐙 Source: Official GitHub Server ({repo_slug})"
         )
-        lbl_server_title.setStyleSheet("font-weight: 700; color: #00E5FF; font-size: 13px;")
+        lbl_server_title.setStyleSheet("font-weight: 700; color: #00E5FF; font-size: 13px; border: none; background: transparent;")
 
         lbl_server_info = QLabel(
             "• ភ្ជាប់ដោយផ្ទាល់ទៅកាន់ GitHub Repository ផ្លូវការ (លឿន មានស្ថេរភាព និងគ្មានដែនកំណត់ Google Drive)\n"
@@ -145,7 +147,7 @@ class PackageUpdaterDialog(QDialog):
             "• Directly connected to the official GitHub Repository (fast, reliable, no Google Drive limits)\n"
             "• Check for updates directly from GitHub or select a local .zip archive"
         )
-        lbl_server_info.setStyleSheet("color: #8E95A5; font-size: 11px; line-height: 1.4;")
+        lbl_server_info.setStyleSheet("color: #8E95A5; font-size: 11px; line-height: 1.4; border: none; background: transparent;")
         lbl_server_info.setWordWrap(True)
 
         s_layout.addWidget(lbl_server_title)
@@ -246,7 +248,7 @@ class PackageUpdaterDialog(QDialog):
         btn_close.clicked.connect(self.reject)
 
         self.btn_install_pkg = QPushButton(
-            "⬇️ ទាញយក និងអាប់ដេតឥឡូវនេះ" if kh else "⬇️ Download & Apply Update"
+            "⬇️ ទាញយក និងអាប់ដេតឥឡូវនេះ" if kh else "⬇️ Download && Apply Update"
         )
         self.btn_install_pkg.setObjectName("BtnGreen")
         self.btn_install_pkg.setStyleSheet(
