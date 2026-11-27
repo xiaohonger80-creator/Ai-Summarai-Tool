@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.6.2"
 CONFIG_FILENAME = "updater_config.json"
 
 # Official GitHub Update Server (migrated from Google Drive -> GitHub)
@@ -216,6 +216,24 @@ class InAppPackageUpdater:
                 return resp.read()
 
     @classmethod
+    def _fetch_github_head_sha(cls, owner: str, repo: str, branch: str = "main", github_token: str = "") -> str:
+        """Returns the exact latest commit SHA on a GitHub branch (zero CDN cache lag)."""
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{branch}"
+        try:
+            raw = cls._http_get_bytes(
+                api_url,
+                timeout=8,
+                github_token=github_token,
+                accept="application/vnd.github.sha",
+            )
+            sha = raw.decode("utf-8", errors="ignore").strip()
+            if re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+                return sha
+        except Exception:
+            pass
+        return ""
+
+    @classmethod
     def _fetch_github_latest_release(cls, owner: str, repo: str, github_token: str = "") -> Optional[Dict]:
         api_url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
         try:
@@ -314,32 +332,45 @@ class InAppPackageUpdater:
         s = cls.normalize_github_raw_url(s)
         gh_info = cls.parse_github_repo(s)
 
-        # 2. Direct JSON / ZIP URL (including raw.githubusercontent.com/.../version.json)
+        # 2. Build ordered manifest candidates (GitHub Contents API first for zero CDN cache lag!)
         is_direct_file_url = (
             s.lower().endswith(".json")
             or s.lower().endswith(".zip")
             or "raw.githubusercontent.com" in s.lower()
             or "/releases/download/" in s.lower()
         )
-        candidate_urls: List[str] = []
+        candidate_requests: List[Tuple[str, str]] = []
+        if gh_info and not s.lower().endswith(".zip"):
+            owner, repo, branch = gh_info
+            branches = [branch] + ([b for b in ("main", "master") if b != branch])
+            for br in branches:
+                candidate_requests.append((
+                    f"https://api.github.com/repos/{owner}/{repo}/contents/version.json?ref={br}",
+                    "application/vnd.github.raw+json",
+                ))
         if is_direct_file_url:
-            candidate_urls.append(s)
+            candidate_requests.append((s, ""))
 
-        # 3. GitHub repo URL -> build smart raw manifest candidates (main, master, release_output)
+        # 3. Raw CDN fallbacks (works even if GitHub REST API hits unauthenticated rate limit)
         if gh_info:
             owner, repo, branch = gh_info
             branches = [branch] + ([b for b in ("main", "master") if b != branch])
             for br in branches:
                 for rel_path in ("version.json", "release_output/version.json"):
-                    cand = f"https://raw.githubusercontent.com/{owner}/{repo}/{br}/{rel_path}"
-                    if cand not in candidate_urls:
-                        candidate_urls.append(cand)
-        elif not candidate_urls:
-            candidate_urls.append(s)
+                    cand = (f"https://raw.githubusercontent.com/{owner}/{repo}/{br}/{rel_path}", "")
+                    if cand not in candidate_requests:
+                        candidate_requests.append(cand)
+        elif not candidate_requests:
+            candidate_requests.append((s, ""))
 
-        for cand_url in candidate_urls:
+        for cand_url, accept_hdr in candidate_requests:
             try:
-                raw_bytes = cls._http_get_bytes(cand_url, timeout=12, github_token=github_token)
+                raw_bytes = cls._http_get_bytes(
+                    cand_url,
+                    timeout=12,
+                    github_token=github_token,
+                    accept=accept_hdr,
+                )
                 if raw_bytes.startswith(b"PK\x03\x04") or raw_bytes.startswith(b"PK\x05\x06"):
                     return cls._inspect_zip_bytes(raw_bytes, source_url=cand_url)
                 data = json.loads(raw_bytes.decode("utf-8"))
@@ -558,11 +589,18 @@ class InAppPackageUpdater:
         src = cls.normalize_github_raw_url(src)
         gh_info = cls.parse_github_repo(src)
 
-        # 1. If src is direct .zip URL, try it first
+        # 1. If GitHub repo, resolve latest commit SHA first so Fastly CDN NEVER serves a stale ZIP!
+        if gh_info and not src.lower().endswith(".zip"):
+            owner, repo, branch = gh_info
+            head_sha = cls._fetch_github_head_sha(owner, repo, branch, github_token=github_token)
+            if head_sha:
+                _add(f"https://raw.githubusercontent.com/{owner}/{repo}/{head_sha}/release_output/AiSummarai_Update.zip")
+
+        # 2. If src is direct .zip URL, try it first
         if src.lower().endswith(".zip") or "/releases/download/" in src.lower():
             _add(src)
 
-        # 2. If src is version.json or a GitHub repo URL, inspect manifest first
+        # 3. If src is version.json or a GitHub repo URL, inspect manifest
         if not src.lower().endswith(".zip"):
             info = cls.check_manifest(src, github_token=github_token) or {}
             if info.get("download_url"):

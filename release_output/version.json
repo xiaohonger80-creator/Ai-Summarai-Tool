@@ -1,11 +1,11 @@
 {
-  "version": "1.6.1",
-  "app_version": "1.6.1",
+  "version": "1.6.2",
+  "app_version": "1.6.2",
   "provider": "github",
   "release_date": "2026-11-27",
   "repo_url": "https://github.com/xiaohonger80-creator/Ai-Summarai-Tool",
   "manifest_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/version.json",
   "download_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/release_output/AiSummarai_Update.zip",
   "changelog": "• 🔢 Auto Rollover Versioning: ប្រព័ន្ធដំឡើងលេខកំណែស្វ័យប្រវត្តិពេលកែកូដ/បន្ថែមមុខងារ (1.6.1 -> 1.6.9 -> 1.7.0 -> 2.0.0)។\n• 🐙 GitHub Auto-Updater: ទាញយក Update ផ្ទាល់ពី GitHub ផ្លូវការ (លឿន មានស្ថេរភាព និងគ្មានដែនកំណត់ Google Drive)។\n• 📚 Series Profile, 🎼 AI Vocal Remover, 🖼️ AI Hook Banner & Thumbnail, 🎬 Intro/Outro Stitcher, 🚀 1-Click Auto Pipeline។\n• ⚡ AI Viral Shorts Clipper (9:16), 🎵 Emotion SFX Auto-Matcher, 🔑 Multi-API 429 Failover, ✨ HD 1080p Upscaler & Social Pack។",
-  "file_size_kb": 1406.3
+  "file_size_kb": 1406.7
 }
