@@ -1,0 +1,44 @@
+# Python caches & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Build & Installer heavy binaries (never push to GitHub)
+build/
+dist/
+installer_output/
+bin/
+build_log.txt
+*.log
+*.tmp
+
+# User data, databases, media, and private admin keygen
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.wav
+*.mp3
+admin_keygen.py
+ADMIN_KEYGEN.bat
+*.docx
+ឯកសារប្រវត្តិ/
+
+# IDE & agent metadata
+.agents/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Explicitly track the lightweight GitHub auto-update package
+!release_output/
+!release_output/AiSummarai_Update.zip
+!release_output/version.json
