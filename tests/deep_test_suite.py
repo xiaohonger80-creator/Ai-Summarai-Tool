@@ -582,7 +582,18 @@ class DeepTestRunner:
         assert not (src_root / "admin_keygen.py").exists(), "admin_keygen.py was NOT blocked!"
         assert not (ext_dir / "data").exists(), "Root data/ directory was NOT stripped!"
         assert not (self.tmp_dir / "zip_slip_escape.txt").exists(), "Zip Slip path traversal was NOT blocked!"
-        return "GitHub parser, manifest check, archive unwrap, data/ + admin_keygen + Zip Slip guards OK"
+
+        # 5. Verify pure-Python direct hot-update installer clears __pycache__ and preserves data/
+        mock_app = self.tmp_dir / "mock_installed_app"
+        (mock_app / "ui" / "__pycache__").mkdir(parents=True, exist_ok=True)
+        (mock_app / "ui" / "__pycache__" / "stale.pyc").write_bytes(b"stale")
+        (mock_app / "data").mkdir(parents=True, exist_ok=True)
+        (mock_app / "data" / "dub_studio.db").write_text("USER_DB_SAFE", encoding="utf-8")
+        copied = InAppPackageUpdater.apply_extracted_files_to_dir(src_root, mock_app)
+        assert copied >= 1 and (mock_app / "core" / "new_module.py").exists()
+        assert not (mock_app / "ui" / "__pycache__").exists(), "Stale __pycache__ not cleared!"
+        assert (mock_app / "data" / "dub_studio.db").read_text(encoding="utf-8") == "USER_DB_SAFE"
+        return "GitHub parser, manifest check, archive unwrap, pure-Python copy + __pycache__/data/ + Zip Slip guards OK"
 
     # ------------------------------------------------------------------
     # PHASE 4D: PYSIDE6 UI & QTHREAD CANCEL/STOP SAFETY

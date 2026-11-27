@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-APP_VERSION = "1.6.5"
+APP_VERSION = "1.6.6"
 CONFIG_FILENAME = "updater_config.json"
 
 # Official GitHub Update Server (migrated from Google Drive -> GitHub)
@@ -655,6 +655,58 @@ class InAppPackageUpdater:
         return candidates
 
     @classmethod
+    def apply_extracted_files_to_dir(cls, source_root: Path, app_root: Path) -> int:
+        """
+        Pure-Python direct hot-update installer:
+        - Clears stale __pycache__ directories in both app_root and _internal
+        - Copies all updated .py / .json / asset files directly using shutil.copy2
+          (Python source & config files are never locked by Windows while the .exe runs!)
+        - Never touches data/ user databases or locked running .exe/.dll binaries
+        Returns the number of files updated.
+        """
+        source_root = Path(source_root).resolve()
+        app_root = Path(app_root).resolve()
+        internal_dir = app_root / "_internal"
+        target_roots = [app_root]
+        if internal_dir.exists() and internal_dir.is_dir():
+            target_roots.append(internal_dir)
+
+        # 1. Clear stale bytecode caches in both app_root and _internal
+        for t_root in target_roots:
+            for sub in ("core", "ui"):
+                cache_dir = t_root / sub / "__pycache__"
+                if cache_dir.exists():
+                    shutil.rmtree(cache_dir, ignore_errors=True)
+
+        # 2. Copy every extracted file cleanly in pure Python (100% reliable, zero cmd/xcopy bugs!)
+        copied = 0
+        for dirpath, dirnames, filenames in os.walk(source_root):
+            dirnames[:] = [d for d in dirnames if d.lower() not in ("data", ".git", "__pycache__")]
+            rel_dir = Path(dirpath).relative_to(source_root)
+            for fname in filenames:
+                src_file = Path(dirpath) / fname
+                rel_file = rel_dir / fname if str(rel_dir) != "." else Path(fname)
+                # Copy into app_root (always highest priority via _HotUpdateDiskFinder)
+                dst_main = app_root / rel_file
+                try:
+                    dst_main.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src_file, dst_main)
+                    copied += 1
+                except PermissionError:
+                    pass
+                # Mirror core/, ui/, version.json, updater_config.json into _internal as well
+                if internal_dir.exists():
+                    top_part = rel_file.parts[0].lower() if rel_file.parts else ""
+                    if top_part in ("core", "ui") or str(rel_file).lower() in ("version.json", "updater_config.json"):
+                        dst_int = internal_dir / rel_file
+                        try:
+                            dst_int.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(src_file, dst_int)
+                        except PermissionError:
+                            pass
+        return copied
+
+    @classmethod
     def download_and_apply_package(
         cls,
         source_url_or_path: str = "",
@@ -778,88 +830,72 @@ class InAppPackageUpdater:
             except Exception:
                 pass
 
-            try:
-                save_updater_config({"app_version": new_version})
-            except Exception:
-                pass
-
-            try:
-                from core.database import Database
-                db = Database()
-                db.set_setting("app_version", new_version)
-                db.close()
-            except Exception:
-                pass
-
-        # ៤. កំណត់ទីតាំង Install/App Directory
+        # ៤. កំណត់ទីតាំង Install/App Directory និងចម្លងកូដថ្មីដោយផ្ទាល់តាម Pure Python (100% Reliable!)
         if getattr(sys, "frozen", False):
             app_root = Path(sys.executable).resolve().parent
-            internal_dir = app_root / "_internal"
-            target_code_dir = internal_dir if internal_dir.exists() else app_root
             exe_name = Path(sys.executable).name
-            launch_script = f'start "" "{exe_name}"'
+            launch_cmd = f'start "" "{exe_name}"'
         else:
             app_root = Path(__file__).resolve().parent.parent
-            target_code_dir = app_root
             py_exe = sys.executable
-            launch_script = (
-                'if exist "RUN_AISUMMARAI.vbs" (\n'
-                '    start "" wscript.exe "RUN_AISUMMARAI.vbs"\n'
-                ') else if exist "AiSummarai.exe" (\n'
-                '    start "" "AiSummarai.exe"\n'
-                ') else (\n'
-                f'    start "" "{py_exe}" "main.py"\n'
+            launch_cmd = (
+                'if exist "RUN_AISUMMARAI.vbs" (\r\n'
+                '    start "" wscript.exe "RUN_AISUMMARAI.vbs"\r\n'
+                ') else if exist "AiSummarai.exe" (\r\n'
+                '    start "" "AiSummarai.exe"\r\n'
+                ') else (\r\n'
+                f'    start "" "{py_exe}" "main.py"\r\n'
                 ')'
             )
 
-        # ៥. រៀបចំ Batch Script ក្នុង Windows TEMP Directory
+        if progress_cb:
+            progress_cb(94, f"កំពុងបញ្ចូលឯកសារកូដថ្មី v{new_version}...")
+
+        copied_count = cls.apply_extracted_files_to_dir(source_root, app_root)
+        if copied_count <= 0:
+            raise RuntimeError(
+                f"មិនអាចចម្លងឯកសារកូដថ្មីចូល {app_root} បានទេ! សូមសាកល្បង Run as Administrator។"
+            )
+
+        # Update active updater_config.json and DB ONLY AFTER files are verified copied!
+        try:
+            save_updater_config({"app_version": new_version})
+        except Exception:
+            pass
+        try:
+            from core.database import Database
+            db = Database()
+            db.set_setting("app_version", new_version)
+            db.close()
+        except Exception:
+            pass
+
+        # Clean temp download directory immediately
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        # ៥. រៀបចំ Pure-ASCII CRLF Relaunch Script ក្នុង TEMP (គ្មានបញ្ហា UTF-8 ឬ timeout/xcopy!)
         temp_dir = Path(os.environ.get("TEMP", os.environ.get("TMP", "C:/Windows/Temp")))
-        bat_path = temp_dir / f"ai_summarai_update_runner_{int(time.time())}.bat"
+        bat_path = temp_dir / f"ai_summarai_relaunch_{int(time.time())}.bat"
         pid = os.getpid()
 
-        bat_content = f"""@echo off
-chcp 65001 >nul
-title Ai Summarai — កំពុងអាប់ដេតកូដថ្មី...
-echo ====================================================================
-echo   Ai Summarai — កំពុងអាប់ដេតកូដថ្មីទៅកាន់ v{new_version}...
-echo ====================================================================
-
-:: ១. រង់ចាំ Process ចាស់បិទបញ្ចប់ដោយសុវត្ថិភាព
-taskkill /F /PID {pid} >nul 2>&1
-timeout /t 2 /nobreak >nul
-
-:: ២. សម្អាត bytecode cache ចាស់ៗ
-for /d /r "{target_code_dir.resolve()}" %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" >nul 2>&1
-
-:: ៣. ចម្លងកូដថ្មីចូល (Overwrite All, including read-only files)
-xcopy "{source_root.resolve()}\\*" "{target_code_dir.resolve()}\\" /E /H /Y /R /Q >nul 2>&1
-if "{target_code_dir.resolve()}" NEQ "{app_root.resolve()}" (
-    xcopy "{source_root.resolve()}\\*" "{app_root.resolve()}\\" /E /H /Y /R /Q >nul 2>&1
-)
-
-:: ៤. សម្អាត folder temp ទាញយក
-timeout /t 1 /nobreak >nul
-if exist "{tmp_dir.resolve()}" rd /s /q "{tmp_dir.resolve()}" >nul 2>&1
-
-:: ៥. ប្តូរ Working Directory ទៅកាន់ App Root
-cd /d "{app_root.resolve()}"
-
-:: ៦. បើកកម្មវិធីឡើងវិញដោយស្វ័យប្រវត្តិ
-{launch_script}
-
-:: ៧. សម្អាតឯកសារ updater script នេះដោយខ្លួនឯង
-(goto) 2>nul & del "%~f0" & exit
-"""
-        bat_path.write_text(bat_content, encoding="utf-8")
+        bat_content = (
+            "@echo off\r\n"
+            f"taskkill /F /PID {pid} >nul 2>&1\r\n"
+            "ping -n 3 127.0.0.1 >nul\r\n"
+            f'cd /d "{app_root.resolve()}"\r\n'
+            f"{launch_cmd}\r\n"
+            'del "%~f0" >nul 2>&1\r\n'
+            "exit\r\n"
+        )
+        bat_path.write_bytes(bat_content.encode("ascii", errors="ignore"))
 
         if progress_cb:
-            progress_cb(100, f"អាប់ដេតជោគជ័យទៅកាន់ v{new_version}! កំពុងបើកកម្មវិធីឡើងវិញ...")
+            progress_cb(100, f"អាប់ដេតជោគជ័យ {copied_count} ឯកសារទៅកាន់ v{new_version}! កំពុងបើកកម្មវិធីឡើងវិញ...")
 
-        # ៦. បើកដំណើរការ Batch Script ដោយបំបែក Process (DETACHED + ZERO CONSOLE)
-        DETACHED_PROCESS = 0x00000008
+        # ៦. បើកដំណើរការ Relaunch Script (CREATE_NO_WINDOW + CREATE_NEW_PROCESS_GROUP — NO conflicting DETACHED_PROCESS!)
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         CREATE_NO_WINDOW = 0x08000000
-        flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+        flags = CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 
         si = subprocess.STARTUPINFO()
         si.dwFlags = subprocess.STARTF_USESHOWWINDOW

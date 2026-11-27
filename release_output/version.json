@@ -1,11 +1,11 @@
 {
-  "version": "1.6.5",
-  "app_version": "1.6.5",
+  "version": "1.6.6",
+  "app_version": "1.6.6",
   "provider": "github",
   "release_date": "2026-11-27",
   "repo_url": "https://github.com/xiaohonger80-creator/Ai-Summarai-Tool",
   "manifest_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/version.json",
   "download_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/release_output/AiSummarai_Update.zip",
-  "changelog": "• 🎨 Fix Dark Dropdown Readability (v1.6.5): ជួសជុលបញ្ហា Dropdown Popup ពណ៌សបាត់អក្សរ ទូទាំងកម្មវិធី និងក្នុង Video Export Studio (Dark QPalette + QListView + High-Contrast Cyan Highlight)។\n• 🔀 Real-Time Workflow Views (Flowchart, Metrics, Live Log, Mini HUD) + Auto 0-9 Rollover Versioning។",
-  "file_size_kb": 1420.6
+  "changelog": "• ⚡ Fix Pure-Python Hot-Updater Engine (v1.6.6): ជួសជុលម៉ាស៊ីន Update ឲ្យចម្លងឯកសារកូដថ្មី (ui/workflow_view.py, main_window.py, export_dialog.py...) ដោយផ្ទាល់តាម Pure Python + សម្អាត __pycache__ 100% (ជំនួស bat/xcopy ចាស់ដែលរំលងឯកសារ)។\n• 🔀 Real-Time Workflow Views Menu (Flowchart, Metrics, Live Log, Mini HUD) + 🎨 Dark Dropdown Readability Fix។",
+  "file_size_kb": 1421.4
 }
