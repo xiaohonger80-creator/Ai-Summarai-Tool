@@ -125,7 +125,8 @@ class KhmerTTSEngine:
 
     async def _synth_async(self, text: str, voice: str, pitch: str, rate: str, out_mp3: str):
         communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
-        await communicate.save(out_mp3)
+        # 12.0s timeout ensures connection stalls or dropped websockets never freeze the worker thread
+        await asyncio.wait_for(communicate.save(out_mp3), timeout=12.0)
 
     def _synth_edge_tts(self, text: str, voice: str, pitch: str, rate: str, out_mp3: str):
         asyncio.run(

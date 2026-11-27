@@ -199,16 +199,21 @@ class ExportVideoDialog(QDialog):
         """Forces dark QListView + QPalette on every QComboBox popup so Windows never paints a white menu."""
         pal = QPalette()
         pal.setColor(QPalette.Window, QColor("#161920"))
+        pal.setColor(QPalette.WindowText, QColor("#F4F6FB"))
         pal.setColor(QPalette.Base, QColor("#161920"))
         pal.setColor(QPalette.AlternateBase, QColor("#1C212C"))
+        pal.setColor(QPalette.ToolTipBase, QColor("#161920"))
+        pal.setColor(QPalette.ToolTipText, QColor("#F4F6FB"))
         pal.setColor(QPalette.Text, QColor("#F4F6FB"))
-        pal.setColor(QPalette.WindowText, QColor("#F4F6FB"))
+        pal.setColor(QPalette.Button, QColor("#181C24"))
+        pal.setColor(QPalette.ButtonText, QColor("#F4F6FB"))
+        pal.setColor(QPalette.BrightText, QColor("#FFFFFF"))
         pal.setColor(QPalette.Highlight, QColor("#00E5FF"))
         pal.setColor(QPalette.HighlightedText, QColor("#0B0D10"))
         popup_qss = (
-            "QListView { background-color: #161920; color: #F4F6FB; border: 1px solid #343B4C; outline: none; padding: 3px; }"
-            "QListView::item { background-color: #161920; color: #F4F6FB; padding: 6px 10px; min-height: 22px; border-radius: 4px; }"
-            "QListView::item:hover, QListView::item:selected { background-color: #00E5FF; color: #0B0D10; font-weight: 700; }"
+            "QListView, QAbstractItemView { background-color: #161920; color: #F4F6FB; border: 1px solid #343B4C; outline: none; padding: 3px; font-size: 12px; font-weight: 500; }"
+            "QListView::item, QAbstractItemView::item { background-color: #161920; color: #F4F6FB; padding: 7px 10px; min-height: 24px; border-radius: 4px; }"
+            "QListView::item:hover, QListView::item:selected, QAbstractItemView::item:hover, QAbstractItemView::item:selected { background-color: #00E5FF; color: #0B0D10; font-weight: 700; }"
         )
         for cb in (
             self.cb_resolution, self.cb_quality, self.cb_fps,

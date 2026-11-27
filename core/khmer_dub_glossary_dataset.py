@@ -867,7 +867,7 @@ SPOKEN_KHMER_GLOSSARY_PACK: List[Tuple[str, str, str]] = [
     ("太子", "រាជទាយាទ", "historical_fantasy"),
     ("阿哥", "ទ្រង់កូនស្តេច", "historical_fantasy"),
     ("格格", "បុត្រីស្តេច", "historical_fantasy"),
-    ("王爷", "ស្តេចត្រាញ់", "historical_fantasy"),
+    ("王爷", "ព្រះអង្គម្ចាស់", "Royalty / Co-Dubbing"),
     ("王妃", "មហេសីស្តេចត្រាញ់", "historical_fantasy"),
     ("世子", "បុត្រច្បងស្តេចត្រាញ់", "historical_fantasy"),
     ("微臣", "ទូលបង្គំជាមន្ត្រី", "historical_fantasy"),

@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-APP_VERSION = "1.6.6"
+APP_VERSION = "1.6.9"
 CONFIG_FILENAME = "updater_config.json"
 
 # Official GitHub Update Server (migrated from Google Drive -> GitHub)

@@ -30,10 +30,15 @@ def get_hardware_profile() -> dict:
     if cores <= 4 or total_ram_gb <= 8.5:
         tier = "low"
         # Leave headroom for Windows + PySide6 GUI on low-end laptops
-        ff_threads = max(1, min(3, cores - 1 if cores > 2 else cores))
-        audio_chunk_size = 35
+        if total_ram_gb <= 4.5 or cores <= 2:
+            ff_threads = 1 if cores <= 2 else 2
+            audio_chunk_size = 25
+            label = f"🟢 Ultra Low-Spec Safe ({cores}C / {total_ram_gb:.0f}GB)"
+        else:
+            ff_threads = max(1, min(3, cores - 1 if cores > 2 else cores))
+            audio_chunk_size = 35
+            label = f"🟢 Low-Spec Safe Mode ({cores}C / {total_ram_gb:.0f}GB)"
         priority_flags = CREATE_NO_WINDOW | IDLE_PRIORITY_CLASS
-        label = f"🟢 Low-Spec Safe Mode ({cores}C / {total_ram_gb:.0f}GB)"
     elif cores <= 8 or total_ram_gb <= 16.5:
         tier = "mid"
         ff_threads = max(2, min(6, cores - 1))

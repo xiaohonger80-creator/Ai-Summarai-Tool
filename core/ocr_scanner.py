@@ -279,7 +279,7 @@ class SubtitleOCRScanner:
                     ev_dict["_bbox"] = bbox
                 raw_events.append(ev_dict)
 
-            if idx % 120 == 119:
+            if idx % 60 == 59:
                 gc.collect()
 
             if progress_cb and idx % 10 == 0:

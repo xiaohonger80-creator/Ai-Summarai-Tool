@@ -309,6 +309,25 @@ class Database:
             except Exception as e:
                 print(f"[Glossary Seed Error] {e}")
 
+            # Always seed and enforce the 6 Mandatory Co-Dubbing Glossary pairs (INSERT OR IGNORE / REPLACE)
+            try:
+                mandatory_terms = [
+                    ("Chu Wei", "ឈូ វៃ", "Character / Co-Dubbing"),
+                    ("Zhengfei", "ព្រះមហេសី", "Royalty / Co-Dubbing"),
+                    ("Xianggong", "ស្វាមី", "Endearment / Co-Dubbing"),
+                    ("Yu'er", "អ៊ីអឺ", "Character / Co-Dubbing"),
+                    ("皇上", "ព្រះអង្គម្ចាស់", "Royalty / Co-Dubbing"),
+                    ("王爷", "ព្រះអង្គម្ចាស់", "Royalty / Co-Dubbing"),
+                ]
+                with self.conn:
+                    self.conn.executemany(
+                        """INSERT INTO glossary (src_term, kh_term, category) VALUES (?, ?, ?)
+                           ON CONFLICT(src_term) DO UPDATE SET kh_term=excluded.kh_term, category=excluded.category""",
+                        mandatory_terms,
+                    )
+            except Exception as e:
+                print(f"[Mandatory Co-Dubbing Glossary Seed Error] {e}")
+
     def set_setting(self, key: str, value: str):
         with self._lock:
             with self.conn:

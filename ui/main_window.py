@@ -2231,6 +2231,7 @@ class MainWindow(QMainWindow):
                     mode="local" if asr_mode == 0 else "api",
                     api_cfg={"api_key": api_key, "base_url": api_url, "whisper_model": "base"},
                     progress_cb=lambda p, msg: emit(15 + int(p * 0.80), msg),
+                    stop_event=self._cancel_event,
                 )
             else:
                 emit(15, "Streaming subtitle area in 10-minute windows (2 FPS)...")
@@ -2246,6 +2247,7 @@ class MainWindow(QMainWindow):
                     crop_ratio=crop_h,
                     crop_y_offset=crop_y,
                     progress_cb=lambda p, msg: emit(15 + int(p * 0.80), msg),
+                    stop_event=self._cancel_event,
                 )
             self.db.insert_segments(self.project_id, items)
             self.db.fix_all_overlaps(self.project_id)

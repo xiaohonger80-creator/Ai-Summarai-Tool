@@ -189,6 +189,19 @@ class DeepTestRunner:
         for col in required_edit_cols:
             assert col in edits, f"Fresh DB missing project_edits.{col}"
 
+        # Verify 6 Mandatory Co-Dubbing Glossary terms are present
+        mandatory_terms = [
+            ("Chu Wei", "ឈូ វៃ"),
+            ("Zhengfei", "ព្រះមហេសី"),
+            ("Xianggong", "ស្វាមី"),
+            ("Yu'er", "អ៊ីអឺ"),
+            ("皇上", "ព្រះអង្គម្ចាស់"),
+            ("王爷", "ព្រះអង្គម្ចាស់"),
+        ]
+        glossary_items = {g["src_term"]: g["kh_term"] for g in fresh_db.get_glossary()}
+        for src, kh in mandatory_terms:
+            assert src in glossary_items and glossary_items[src] == kh, f"Mandatory glossary term missing: {src}"
+
         sp_id = fresh_db.save_series_profile(
             "TestSeries",
             default_voice_map={"speaker_voices": {"王总": "male"}},
@@ -297,6 +310,18 @@ class DeepTestRunner:
         tr_rec = ZHtoKHTranslator(api_key="k1\nk2\nk3", base_url="https://api.openai.com/v1", model="gpt-4o-mini", dub_style="recap")
         assert tr_lit._get_system_prompt() == DUBBING_SYSTEM_PROMPT
         assert tr_rec._get_system_prompt() == RECAP_SYSTEM_PROMPT
+        assert "Co-Dubbing" in DUBBING_SYSTEM_PROMPT and "20 years of studio" in DUBBING_SYSTEM_PROMPT
+
+        # Verify Co-Dubbing Glossary length-descending sorting (len(src) DESC)
+        sample_glossary = [
+            {"src_term": "Chu", "kh_term": "ឈូ"},
+            {"src_term": "Chu Wei", "kh_term": "ឈូ វៃ"},
+            {"src_term": "皇上", "kh_term": "ព្រះអង្គម្ចាស់"},
+        ]
+        tr_gloss = ZHtoKHTranslator(glossary=sample_glossary)
+        assert len(tr_gloss.glossary[0]["src_term"]) >= len(tr_gloss.glossary[1]["src_term"])
+        res_text = tr_gloss._apply_glossary("Hello Chu Wei and 皇上 here")
+        assert "ឈូ វៃ" in res_text and "ព្រះអង្គម្ចាស់" in res_text and "ឈូ  Wei" not in res_text
 
         # Verify pure Khmer normalization & conversational polish (zero leaked Chinese)
         polished = tr_lit._polish_conversational_khmer("តើអ្នកជានរណា？（笑）សូមអភ័យទោស ខ្ញុំមិនដឹងទេ！")

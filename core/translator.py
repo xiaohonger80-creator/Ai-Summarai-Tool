@@ -10,30 +10,27 @@ from core.api_pool import APIKeyPoolManager
 
 
 DUBBING_SYSTEM_PROMPT = (
-    "You are an elite Cambodian film & TV drama dubbing scriptwriter translating Chinese dialogue into "
-    "AUTHENTIC, NATURAL CONVERSATIONAL SPOKEN KHMER (ភាសាខ្មែរនិយាយក្នុងភាពយន្តដ៏ធម្មជាតិ ដូចតួអង្គខ្មែរនិយាយផ្ទាល់ មិនមែនបកប្រែរឹងមួយម៉ាត់ៗតាមម៉ាស៊ីនឡើយ)។\n\n"
-    "MANDATORY MOVIE-GRADE DUBBING RULES:\n"
-    "1. NATURAL SPOKEN KHMER (ភាសានិយាយធម្មជាតិ ១០០%):\n"
-    "   - Write how real Cambodians actually speak in drama/movies — vivid, emotional, effortless to say out loud.\n"
-    "   - Use natural everyday spoken Khmer words & sentence-final particles: 'អត់...ទេ', 'ហ្នឹង', 'អ្ហ៎', 'អី', 'ស្អី', 'ចឹង', 'ទៅ', 'ណា', 'ផង', 'ម៉េច', 'ដែរ', 'ហ្អេ'.\n"
+    "You are Co-Dubbing, a master Chinese-to-Khmer dubbing translator and voice script director with 20 years of studio "
+    "experience adapting Chinese dramas, films, and short-form stories for Khmer audiences (អ្នកដឹកនាំបញ្ចូលសំឡេង និងអ្នកនិពន្ធអត្ថបទភាពយន្តចិន-ខ្មែរជើងចាស់ ២០ ឆ្នាំ)។\n"
+    "Your mission is to translate Chinese dialogue into AUTHENTIC, SOFT, NATURAL CONVERSATIONAL SPOKEN KHMER "
+    "(ភាសាខ្មែរនិយាយក្នុងភាពយន្តដ៏ធម្មជាតិ ទន់ភ្លន់ រស់រវើក ដូចតួអង្គខ្មែរនិយាយផ្ទាល់ មិនមែនបកប្រែរឹងមួយម៉ាត់ៗតាមម៉ាស៊ីនឡើយ)។\n\n"
+    "CO-DUBBING 20-YEAR STUDIO DIRECTING RULES:\n"
+    "1. INTERPRET SUBTEXT, RELATIONSHIPS & EMOTION (យល់អត្ថន័យបង្កប់ និងអារម្មណ៍តួអង្គ):\n"
+    "   - Never translate literally. Interpret all varieties of Chinese dialogue (Mandarin, colloquial slang, period/costume drama speech, emotional whispers, and inner thoughts) for their true subtext.\n"
+    "   - Express character emotional state precisely: tender/soft, heartbroken, furious, playful, secret whispering, or inner thought.\n"
+    "2. NATURAL, SOFT SPOKEN KHMER PRONOUNS & PARTICLES (ភាសានិយាយទន់ភ្លន់ ធម្មជាតិ):\n"
+    "   - Use authentic spoken pronouns: 'បង', 'អូន', 'ឯង', 'ខ្ញុំ', 'លោក', 'អ្នកនាង', 'ម៉ាក់', 'ប៉ា', 'លោកពូ'.\n"
+    "   - Use gentle, natural spoken particles so lines flow smoothly off the tongue: 'ណា', 'ណ៎ា', 'ទេ', 'អី', 'ទៅ', 'មែនទេ', 'ចាស', 'បាទ', 'ហ្នឹង', 'អ្ហ៎', 'ផង', 'ម៉េច', 'ដែរ', 'ហ្អេ'.\n"
     "   - NEVER use stiff textbook/literary wording: NO 'តើ' at the start of questions, NO 'សូមអភ័យទោស' (use 'សុំទោស'), NO 'តើអ្នកជានរណា' (use 'ឯងជាអ្នកណា?'), NO 'ហេតុអ្វីបានជាអ្នក' (use 'ម៉េចបានឯង...'), NO 'វាជាការពិត' (use 'ពិតមែនហើយ'), NO 'មិនអាចទៅរួចទេ' (use 'ទៅមិនរួចទេ' or 'អត់អាចទេ').\n"
-    "   - Translate the TRUE emotional meaning and subtext, NEVER stiff word-for-word literal calques.\n"
-    "2. STRICT RHYTHM & LIP-SYNC DURATION MATCHING (`dur_s` & `max_kh_chars`):\n"
-    "   - Each input line includes `dur_s` (exact actor spoken seconds) and `max_kh_chars` (recommended Khmer length).\n"
+    "3. PRESERVE RHYTHM & LIP-SYNC DURATION (`dur_s` & `max_kh_chars`):\n"
     "   - Match the spoken Khmer rhythm tightly to `dur_s` so the Khmer voiceover fits smoothly inside the actor's mouth window without rushing or lagging.\n"
     "   - For short bursts (< 1.5s), use sharp punchy spoken phrases (e.g. 'ឈប់សិន!', 'ស្អីគេហ្នឹង?', 'អត់ទេ!', 'លឿនឡើង!').\n"
-    "   - Never pad with unnecessary filler words; trim verbose clauses while keeping 100% of the drama & meaning.\n"
-    "3. CHARACTER VOICE & PRONOUN CONSISTENCY:\n"
-    "   - Lovers / Couple: 'បង / អូន'\n"
-    "   - Peers / Friends / Rivals: 'ខ្ញុំ / ឯង' or 'យើង / ឯង' (furious/hostile: 'អញ / ហ្អែង')\n"
-    "   - Family / Elders: 'ប៉ា / កូន', 'ម៉ាក់ / កូន', 'ពូ / មីង', 'លោកតា / លោកយាយ'\n"
-    "   - Modern CEO / Period Drama: 'លោកប្រធាន', 'អ្នកប្រុស', 'អ្នកនាង', 'លោកម្ចាស់', 'ព្រះអង្គ', 'ទូលបង្គំ'\n"
-    "   - Keep crisp punctuation ('!', '?', '...') so Khmer TTS delivers exact emotion.\n"
-    "4. 100% AUDIO-SUBTITLE ALIGNMENT:\n"
-    "   - Output ONLY pure clean spoken Khmer (ZERO Chinese characters, ZERO translator notes, ZERO parenthetical explanations like '(laugh)').\n"
-    "   - What you write will be BOTH displayed as the on-screen Khmer subtitle AND spoken word-for-word by the voiceover actor.\n"
-    "5. STRICT GLOSSARY & JSON OUTPUT:\n"
-    "   - Honor every character name and term from the Glossary.\n"
+    "   - Never pad with unnecessary filler words; keep phrasing concise and emotionally impactful.\n"
+    "4. CLEAN SPOKEN DIALOGUE ONLY (100% PURE SPOKEN TEXT):\n"
+    "   - Output ONLY pure clean spoken Khmer (ZERO Chinese characters, ZERO pronunciation guides, ZERO translator notes, ZERO parenthetical explanations like '(laugh)').\n"
+    "   - What you write will be BOTH displayed as the on-screen Khmer subtitle AND voiced word-for-word by Khmer TTS.\n"
+    "5. STRICT GLOSSARY ENFORCEMENT & JSON OUTPUT:\n"
+    "   - Always honor character names and royalty titles from the Glossary (e.g. 'Chu Wei' -> 'ឈូ វៃ', 'Zhengfei' -> 'ព្រះមហេសី', 'Xianggong' -> 'ស្វាមី', 'Yu\\'er' -> 'អ៊ីអឺ', '皇上' -> 'ព្រះអង្គម្ចាស់', '王爷' -> 'ព្រះអង្គម្ចាស់').\n"
     "   - Return ONLY a valid JSON object mapping numeric string id to the natural spoken Khmer line. No markdown fences or commentary."
 )
 
@@ -191,16 +188,32 @@ class ZHtoKHTranslator:
     strip_chinese_from_khmer = staticmethod(strip_chinese_from_khmer)
 
     def _apply_glossary(self, text: str) -> str:
-        """Applies user's Custom Glossary (e.g. 'Chu Wei' -> 'ឈូ វៃ') so Khmer TTS pronounces every name cleanly."""
+        """Applies user's Custom Glossary (e.g. 'Chu Wei' -> 'ឈូ វៃ') so Khmer TTS pronounces every name cleanly.
+        Always sorted by descending source-term length (len(src) DESC) so longer multi-character terms
+        are replaced first and never collide with shorter substrings.
+        """
         if not text or not self.glossary:
             return text
+        sorted_glossary = sorted(
+            self.glossary,
+            key=lambda x: len((x.get("zh_term") or x.get("src_term") or "").strip()),
+            reverse=True,
+        )
         out = text
-        for item in self.glossary:
+        for item in sorted_glossary:
             src = (item.get("zh_term") or item.get("src_term") or "").strip()
             dst = (item.get("kh_term") or "").strip()
             if src and dst and src in out:
                 out = out.replace(src, f" {dst} ")
         return " ".join(out.split())
+
+    def _apply_glossary_pre(self, text: str) -> str:
+        """Pre-translation glossary substitution (len(src) DESC)."""
+        return self._apply_glossary(text)
+
+    def _apply_glossary_post(self, text: str) -> str:
+        """Post-translation glossary enforcement (len(src) DESC)."""
+        return self._apply_glossary(text)
 
     def _apply_glossary_replacements(self, text: str) -> str:
         return self._apply_glossary(text)
@@ -208,9 +221,14 @@ class ZHtoKHTranslator:
     def _glossary_prompt_block(self) -> str:
         if not self.glossary:
             return ""
+        sorted_glossary = sorted(
+            self.glossary,
+            key=lambda x: len((x.get("zh_term") or x.get("src_term") or "").strip()),
+            reverse=True,
+        )
         pairs = [
             f"- {(g.get('zh_term') or g.get('src_term')).strip()} = {g['kh_term'].strip()}"
-            for g in self.glossary
+            for g in sorted_glossary
             if (g.get("zh_term") or g.get("src_term")) and g.get("kh_term")
         ]
         if not pairs:

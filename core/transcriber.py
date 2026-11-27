@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import re
@@ -285,6 +286,10 @@ class SpeechTranscriber:
                 "voice_override": "",
                 "words": getattr(seg, "words", None),
             })
+
+        # Free audio arrays from memory immediately on low-spec PCs
+        del audio_array
+        gc.collect()
 
         # សម្អាត temporary enhanced wav
         if clean_wav != wav_path:

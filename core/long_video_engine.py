@@ -154,6 +154,7 @@ class LongVideoStreamEngine:
         crop_ratio: float = 0.28,
         crop_y_offset: float = None,
         progress_cb: Callable[[int, str], None] = None,
+        stop_event=None,
     ) -> List[Dict]:
         """
         ស្កេនអក្សរចិនលើវីដេអូវែង ៥ ម៉ោង ដោយទាញរូបភាពម្តង ១០ នាទី (Overlap 15s) រួចលុបចោលភ្លាមៗ
@@ -173,6 +174,8 @@ class LongVideoStreamEngine:
         step_sec = max(60.0, float(cls.CHUNK_SECONDS - cls.OVERLAP_SEC))
 
         while start_sec < total_sec - 0.2:
+            if stop_event and stop_event.is_set():
+                break
             dur = min(float(cls.CHUNK_SECONDS), total_sec - start_sec)
             if dur <= 0.2:
                 break
@@ -236,6 +239,7 @@ class LongVideoStreamEngine:
         mode: str,
         api_cfg: dict,
         progress_cb: Callable[[int, str], None] = None,
+        stop_event=None,
     ) -> List[Dict]:
         """
         ស្តាប់សំឡេងលើវីដេអូវែង ៥ ម៉ោង ម្តង ១០ នាទី (Overlap 15s) ការពារកុំឲ្យអស់ RAM និងការពារ Error 4294967294
@@ -255,6 +259,8 @@ class LongVideoStreamEngine:
         step_sec = max(60.0, float(cls.CHUNK_SECONDS - cls.OVERLAP_SEC))
 
         while start_sec < total_sec - 0.25:
+            if stop_event and stop_event.is_set():
+                break
             remaining = total_sec - start_sec
             if remaining <= 0.25:
                 break
