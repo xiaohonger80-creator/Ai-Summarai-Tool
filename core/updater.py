@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-APP_VERSION = "1.6.2"
+APP_VERSION = "1.6.3"
 CONFIG_FILENAME = "updater_config.json"
 
 # Official GitHub Update Server (migrated from Google Drive -> GitHub)
@@ -33,6 +33,37 @@ def _get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
+
+
+def _ver_tuple(v_str: str) -> Tuple[int, ...]:
+    nums = [int(n) for n in re.findall(r"\d+", (v_str or "0.0.0").strip())]
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums[:3])
+
+
+def get_effective_app_version() -> str:
+    """
+    Returns the highest valid active version across APP_VERSION, local version.json,
+    and updater_config.json so hot-updated builds ALWAYS display the exact latest version.
+    """
+    best = APP_VERSION
+    base = _get_base_dir()
+    for fname, key in (("version.json", "version"), (CONFIG_FILENAME, "app_version")):
+        for root_cand in (base, base / "_internal"):
+            fp = root_cand / fname
+            if fp.exists():
+                try:
+                    dat = json.loads(fp.read_text(encoding="utf-8"))
+                    v = str(dat.get(key) or dat.get("app_version") or "").strip().lstrip("vV")
+                    if v and _ver_tuple(v) > _ver_tuple(best):
+                        best = v
+                except Exception:
+                    pass
+    return best
+
+
+APP_VERSION = get_effective_app_version()
 
 
 def _is_legacy_gdrive_url(url: str) -> bool:

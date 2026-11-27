@@ -515,7 +515,7 @@ class MainWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _set_short_filename(self, filename: str):
-        elided = self.lbl_file.fontMetrics().elidedText(filename, Qt.ElideMiddle, 240)
+        elided = self.lbl_file.fontMetrics().elidedText(filename, Qt.ElideMiddle, 175)
         self.lbl_file.setText(elided)
         self.lbl_file.setToolTip(filename)
 
@@ -546,12 +546,14 @@ class MainWindow(QMainWindow):
 
         self.lbl_title = QLabel()
         self.lbl_title.setObjectName("AppTitle")
+        self.lbl_title.setMinimumWidth(148)
         top_layout.addWidget(self.lbl_title)
 
         self.lbl_file = QLabel()
         self.lbl_file.setObjectName("FilePill")
-        self.lbl_file.setAlignment(Qt.AlignCenter)
-        self.lbl_file.setMaximumWidth(220)
+        self.lbl_file.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.lbl_file.setFixedHeight(28)
+        self.lbl_file.setMaximumWidth(205)
         top_layout.addWidget(self.lbl_file)
 
         self.lbl_encoder = QLabel(tr(self.lang, "mode_fast_copy"))
@@ -1268,8 +1270,9 @@ class MainWindow(QMainWindow):
 
     def _apply_language(self):
         L = self.lang
-        from core.updater import APP_VERSION
-        title_text = f"{tr(L, 'app_title')} v{APP_VERSION}"
+        from core.updater import get_effective_app_version
+        cur_ver = get_effective_app_version()
+        title_text = f"{tr(L, 'app_title')} v{cur_ver}"
         self.setWindowTitle(title_text)
         self.lbl_title.setText(title_text)
         self.btn_lang.setText(tr(L, "lang_btn"))

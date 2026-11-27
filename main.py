@@ -33,11 +33,28 @@ def _suppress_windows_console_windows():
 
 _suppress_windows_console_windows()
 
-# Priority import path for hot-updated Python code over PyInstaller frozen bytecode
+# Priority import path + meta_path hook so hot-updated .py files on disk ALWAYS override PyInstaller frozen PYZ bytecode
 _app_install_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-for _p in [str(_app_install_dir), str(_app_install_dir / "_internal")]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+for _p in [str(_app_install_dir / "_internal"), str(_app_install_dir)]:
+    if _p in sys.path:
+        sys.path.remove(_p)
+    sys.path.insert(0, _p)
+
+if getattr(sys, "frozen", False):
+    import importlib.machinery as _imp_machinery
+
+    class _HotUpdateDiskFinder:
+        _PREFIXES = ("core", "ui")
+
+        @classmethod
+        def find_spec(cls, fullname, path=None, target=None):
+            top = fullname.split(".", 1)[0]
+            if top not in cls._PREFIXES:
+                return None
+            search_locs = [str(_app_install_dir)] if path is None else list(path)
+            return _imp_machinery.PathFinder.find_spec(fullname, search_locs, target)
+
+    sys.meta_path.insert(0, _HotUpdateDiskFinder)
 
 from core.database import Database
 from ui.main_window import MainWindow
@@ -83,7 +100,6 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Ai Summarai")
-    app.setApplicationDisplayName("Ai Summarai")
     app.setStyle("Fusion")
     default_font = QFont("Inter", 10)
     default_font.setFamilies(["Inter", "Kantumruy Pro", "Noto Sans Khmer", "Khmer OS Battambang", "Segoe UI", "Microsoft YaHei", "sans-serif"])

@@ -22,9 +22,9 @@ from PySide6.QtGui import QIcon, QFont, QColor
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
-    QDialog, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+    QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QComboBox, QLineEdit, QProgressBar, QFileDialog, QFrame, QMessageBox,
-    QSlider, QSizePolicy, QCheckBox
+    QSlider, QSizePolicy, QCheckBox, QScrollArea
 )
 from core.media_engine import MediaEngine
 from core.lut_presets import LUT_PRESETS
@@ -70,8 +70,15 @@ class ExportVideoDialog(QDialog):
         self._cancel_event = threading.Event()
 
         self.setWindowTitle("Ai Summarai — Video Export Studio (នាំចេញវីដេអូ)")
-        self.setMinimumSize(920, 580)
-        self.resize(960, 620)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            geo = screen.availableGeometry()
+            win_w = min(1080, max(920, int(geo.width() * 0.84)))
+            win_h = min(750, max(600, int(geo.height() * 0.88)))
+        else:
+            win_w, win_h = 1060, 740
+        self.setMinimumSize(920, 600)
+        self.resize(win_w, win_h)
         self.setStyleSheet("""
             QDialog {
                 background-color: #0B0D10;
@@ -82,6 +89,28 @@ class ExportVideoDialog(QDialog):
                 border: 1px solid #252A36;
                 border-radius: 8px;
             }
+            QScrollArea#ExportSettingsScroll {
+                background: transparent;
+                border: none;
+            }
+            QScrollArea#ExportSettingsScroll QScrollBar:vertical {
+                background: #12151B;
+                width: 6px;
+                margin: 2px 0;
+                border-radius: 3px;
+            }
+            QScrollArea#ExportSettingsScroll QScrollBar::handle:vertical {
+                background: #343B4C;
+                min-height: 28px;
+                border-radius: 3px;
+            }
+            QScrollArea#ExportSettingsScroll QScrollBar::handle:vertical:hover {
+                background: #00E5FF;
+            }
+            QScrollArea#ExportSettingsScroll QScrollBar::add-line:vertical,
+            QScrollArea#ExportSettingsScroll QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
             QLabel {
                 color: #F4F6FB;
             }
@@ -90,7 +119,8 @@ class ExportVideoDialog(QDialog):
                 color: #F4F6FB;
                 border: 1px solid #343B4C;
                 border-radius: 6px;
-                padding: 6px 12px;
+                padding: 5px 10px;
+                min-height: 22px;
                 font-size: 12px;
             }
             QComboBox::drop-down {
@@ -111,6 +141,10 @@ class ExportVideoDialog(QDialog):
                 border-radius: 6px;
                 padding: 6px 10px;
                 font-size: 12px;
+            }
+            QCheckBox {
+                spacing: 7px;
+                padding: 2px 0px;
             }
             QProgressBar {
                 background-color: #181C24;
@@ -218,24 +252,38 @@ class ExportVideoDialog(QDialog):
         main_layout.addWidget(left_card, 52)
 
         # =====================================================================
-        # 2. RIGHT: EXPORT CONFIGURATION PANEL
+        # 2. RIGHT: EXPORT CONFIGURATION PANEL (Scrollable Settings + Pinned CTA)
         # =====================================================================
         right_card = QFrame()
         right_card.setObjectName("PanelCard")
         right_v = QVBoxLayout(right_card)
-        right_v.setContentsMargins(14, 14, 14, 14)
+        right_v.setContentsMargins(14, 12, 14, 12)
         right_v.setSpacing(10)
 
         lbl_opt_title = QLabel("⚙️ កំណត់គុណភាពវីដេអូនាំចេញ (Export Settings)")
-        lbl_opt_title.setStyleSheet("color: #10B981; font-weight: bold; font-size: 11px;")
+        lbl_opt_title.setStyleSheet("color: #10B981; font-weight: bold; font-size: 12px;")
         right_v.addWidget(lbl_opt_title)
+
+        # Scrollable settings body so nothing ever gets squished on any screen height
+        settings_scroll = QScrollArea()
+        settings_scroll.setObjectName("ExportSettingsScroll")
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        settings_scroll.setFrameShape(QFrame.NoFrame)
+
+        settings_body = QWidget()
+        settings_body.setStyleSheet("background: transparent;")
+        s_v = QVBoxLayout(settings_body)
+        s_v.setContentsMargins(0, 0, 6, 4)
+        s_v.setSpacing(8)
 
         # 1. RESOLUTION SELECTOR (2k / 1080p / 720p / Original)
         lbl_res = QLabel("📐 កម្រិតច្បាស់វីដេអូ (Resolution):")
         lbl_res.setStyleSheet("font-weight: 600; font-size: 11px;")
-        right_v.addWidget(lbl_res)
+        s_v.addWidget(lbl_res)
 
         self.cb_resolution = QComboBox()
+        self.cb_resolution.setFixedHeight(32)
         if self.is_portrait:
             self.cb_resolution.addItem("1080p FHD - 1080x1920 (ស្តង់ដារ TikTok / Reels - Recommended)", "1080p")
             self.cb_resolution.addItem("2K QHD - 1440x2560 (កម្រិតខ្ពស់ Ultra HD)", "2k")
@@ -247,68 +295,77 @@ class ExportVideoDialog(QDialog):
             self.cb_resolution.addItem("720p HD - 1280x720 (ទំហំស្រាល ល្បឿនលឿន)", "720p")
             self.cb_resolution.addItem(f"Original - {self.src_w}x{self.src_h} (គុណភាពដើម)", "original")
         self.cb_resolution.currentIndexChanged.connect(self._on_settings_changed)
-        right_v.addWidget(self.cb_resolution)
+        s_v.addWidget(self.cb_resolution)
 
         # 2. QUALITY PRESET (Bitrate / CRF)
         lbl_qual = QLabel("💎 គុណភាពរូបភាព (Video Quality / Bitrate):")
         lbl_qual.setStyleSheet("font-weight: 600; font-size: 11px;")
-        right_v.addWidget(lbl_qual)
+        s_v.addWidget(lbl_qual)
 
         self.cb_quality = QComboBox()
+        self.cb_quality.setFixedHeight(32)
         self.cb_quality.addItem("🚀 Ultra Fast / ល្បឿនលឿនបំផុត (GPU Acceleration / Fastest Export - 5x Speed)", "ultrafast")
         self.cb_quality.addItem("Balanced / ល្មមស្តង់ដារ (CRF 22 / 5.5 Mbps - Recommended)", "balanced")
         self.cb_quality.addItem("High Quality / គុណភាពខ្ពស់ (CRF 18 / 10 Mbps - Master)", "high")
         self.cb_quality.addItem("Small File Size / ទំហំតូចសន្សំទំហំ (CRF 26 / 3 Mbps)", "small")
         self.cb_quality.setCurrentIndex(1)
-        right_v.addWidget(self.cb_quality)
+        s_v.addWidget(self.cb_quality)
 
         # 3. FRAME RATE (FPS)
         lbl_fps = QLabel("⚡ ល្បឿនរូបភាព (Frame Rate / FPS):")
         lbl_fps.setStyleSheet("font-weight: 600; font-size: 11px;")
-        right_v.addWidget(lbl_fps)
+        s_v.addWidget(lbl_fps)
 
         self.cb_fps = QComboBox()
+        self.cb_fps.setFixedHeight(32)
         self.cb_fps.addItem("Auto (FPS ដើមនៃវីដេអូ)", "original")
         self.cb_fps.addItem("60 FPS (ចលនារលូន Smooth)", "60")
         self.cb_fps.addItem("30 FPS (ស្តង់ដារ Standard)", "30")
-        right_v.addWidget(self.cb_fps)
+        s_v.addWidget(self.cb_fps)
 
         # 4. HARDWARE ACCELERATION ENCODER & LOW-SPEC AUTO-BALANCE
         hw_prof = get_hardware_profile()
         lbl_enc = QLabel(f"🚀 បច្ចេកវិទ្យា Render (Video Encoder) • {hw_prof['label']}:")
         lbl_enc.setStyleSheet("font-weight: 600; font-size: 11px;")
-        right_v.addWidget(lbl_enc)
+        s_v.addWidget(lbl_enc)
 
         self.cb_encoder = QComboBox()
+        self.cb_encoder.setFixedHeight(32)
         enc_label = MediaEngine.get_encoder_label()
         self.cb_encoder.addItem(f"Auto ({enc_label} + CPU Auto-Fallback)", "auto")
         self.cb_encoder.addItem("CPU: Multi-Core libx264 (Universal Compatibility)", "cpu")
-        right_v.addWidget(self.cb_encoder)
+        s_v.addWidget(self.cb_encoder)
 
         # 4A. 20+ ADJUSTMENT & LUT PRESET SELECTOR
         lbl_lut = QLabel("🎨 Adjustments & LUT Preset (ការកែសម្រួលពណ៌ ២០+ ប្រភេទ):")
         lbl_lut.setStyleSheet("font-weight: 600; font-size: 11px;")
-        right_v.addWidget(lbl_lut)
+        s_v.addWidget(lbl_lut)
 
         self.cb_lut_preset = QComboBox()
+        self.cb_lut_preset.setFixedHeight(32)
         for preset in LUT_PRESETS:
             self.cb_lut_preset.addItem(preset["name"], preset["id"])
-        right_v.addWidget(self.cb_lut_preset)
+        s_v.addWidget(self.cb_lut_preset)
 
-        # 4B. AI ANTI-COPYRIGHT & TIMED BLUR CONTROLS
+        # 4B. AI ANTI-COPYRIGHT & TIMED BLUR CONTROLS (Full Unclipped Card)
         ac_card = QFrame()
         ac_card.setObjectName("AcCard")
-        ac_card.setStyleSheet("QFrame#AcCard { background: rgba(0, 229, 255, 0.04); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; }")
+        ac_card.setStyleSheet(
+            "QFrame#AcCard { background: rgba(0, 229, 255, 0.05); "
+            "border: 1px solid rgba(0, 229, 255, 0.28); border-radius: 8px; }"
+        )
         ac_v = QVBoxLayout(ac_card)
-        ac_v.setContentsMargins(8, 6, 8, 6)
-        ac_v.setSpacing(4)
+        ac_v.setContentsMargins(10, 9, 10, 9)
+        ac_v.setSpacing(7)
 
         self.chk_anti_copyright = QCheckBox("🛡️ បើក AI Anti-Copyright (កាត់ផ្តាច់ Content ID)")
         self.chk_anti_copyright.setStyleSheet("font-weight: 700; color: #00E5FF; font-size: 11.5px;")
         ac_v.addWidget(self.chk_anti_copyright)
 
         ac_row = QHBoxLayout()
+        ac_row.setSpacing(8)
         self.cb_anti_copyright_level = QComboBox()
+        self.cb_anti_copyright_level.setFixedHeight(30)
         self.cb_anti_copyright_level.addItem("🟢 កម្រិតស្រាល (Natural Safe)", "light")
         self.cb_anti_copyright_level.addItem("🟡 កម្រិតមធ្យម (Standard Bypass - Recom.)", "medium")
         self.cb_anti_copyright_level.addItem("🔴 កម្រិតខ្លាំង (Max Fingerprint Break)", "strong")
@@ -324,25 +381,30 @@ class ExportVideoDialog(QDialog):
         self.chk_ac_border.setToolTip("ស៊ុមព្រិលព័ទ្ធជុំវិញ (Blurred-Pillar Frame Border)")
         self.chk_ac_border.setStyleSheet("font-size: 11px; color: #F4F6FB;")
         ac_row.addWidget(self.chk_ac_border)
-
         ac_v.addLayout(ac_row)
 
-        blur_row = QHBoxLayout()
-        blur_row.setSpacing(8)
-        self.chk_ac_blur = QCheckBox("🌫️ Auto-Blur អក្សរចិន")
+        self.chk_ac_blur = QCheckBox("🌫️ Auto-Blur អក្សរចិន (បាំងអក្សររត់ចិនស្វ័យប្រវត្តិ)")
         self.chk_ac_blur.setToolTip("បាំង Blur លើតំបន់អក្សររត់ចិនដោយស្វ័យប្រវត្តិកំឡុងពេល Render")
-        self.chk_ac_blur.setStyleSheet("font-size: 11px; color: #00E5FF; font-weight: 600; padding-top: 2px;")
-        blur_row.addWidget(self.chk_ac_blur)
+        self.chk_ac_blur.setStyleSheet("font-size: 11px; color: #00E5FF; font-weight: 600;")
+        ac_v.addWidget(self.chk_ac_blur)
 
-        self.chk_timed_blur = QCheckBox("⏱️ Blur តាមម៉ោង និងទីតាំង (Auto Timed Blur)")
+        self.chk_timed_blur = QCheckBox("⏱️ Blur តាមម៉ោង និងទីតាំង (Auto Timed Blur — 0% Blur ពេលគ្មានអក្សរ)")
         self.chk_timed_blur.setToolTip("បាំង Blur តែពេលមានអក្សរលោតលើអេក្រង់ — ពេលគ្មានអក្សរ វីដេអូដើរច្បាស់ ១០០% (Direct Pass-Through)")
-        self.chk_timed_blur.setStyleSheet("font-size: 11px; color: #34D399; font-weight: 700; padding-top: 2px;")
-        blur_row.addWidget(self.chk_timed_blur, 1)
-        ac_v.addLayout(blur_row)
+        self.chk_timed_blur.setStyleSheet("font-size: 11px; color: #34D399; font-weight: 700;")
+        ac_v.addWidget(self.chk_timed_blur)
 
-        right_v.addWidget(ac_card)
+        self.chk_hd_upscale = QCheckBox("✨ Smart HD Clarity Enhancer (កែរូបភាពឲ្យច្បាស់មុត 1080p Lanczos)")
+        self.chk_hd_upscale.setToolTip("បំបាត់ Noise និងបន្ថែមភាពច្បាស់មុត (hqdn3d + unsharp) លើវីដេអូនាំចេញ")
+        self.chk_hd_upscale.setStyleSheet("font-size: 11px; color: #FBBF24; font-weight: 700;")
+        ac_v.addWidget(self.chk_hd_upscale)
 
-        # Load persisted edits for anti-copyright, timed blur & LUT preset
+        s_v.addWidget(ac_card)
+        s_v.addStretch()
+
+        settings_scroll.setWidget(settings_body)
+        right_v.addWidget(settings_scroll, 1)
+
+        # Load persisted edits for anti-copyright, timed blur, HD upscale & LUT preset
         init_edits = self.db.get_project_edits(self.project_id) if self.db else {}
         self.chk_anti_copyright.setChecked(bool(init_edits.get("anti_copyright_enabled", 1)))
         ac_l = init_edits.get("anti_copyright_level", "medium")
@@ -353,10 +415,17 @@ class ExportVideoDialog(QDialog):
         self.chk_ac_border.setChecked(bool(init_edits.get("anti_copyright_border", 0)))
         self.chk_ac_blur.setChecked(bool(init_edits.get("auto_blur_chinese", 1)))
         self.chk_timed_blur.setChecked(bool(init_edits.get("auto_timed_blur", 1)))
+        self.chk_hd_upscale.setChecked(bool(init_edits.get("hd_upscale_enabled", 0)))
         lut_id = init_edits.get("lut_preset", "none")
         idx_lut = self.cb_lut_preset.findData(lut_id)
         if idx_lut >= 0:
             self.cb_lut_preset.setCurrentIndex(idx_lut)
+
+        # Clean horizontal divider before pinned footer
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setStyleSheet("background-color: #252A36; max-height: 1px; border: none;")
+        right_v.addWidget(divider)
 
         # 5. OUTPUT SAVE PATH
         lbl_path = QLabel("📁 ទីតាំងរក្សាទុក (Output Destination):")
@@ -548,6 +617,7 @@ class ExportVideoDialog(QDialog):
             self.cb_encoder, self.cb_lut_preset, self.btn_browse, self.edit_output_path,
             self.chk_anti_copyright, self.cb_anti_copyright_level,
             self.chk_ac_flip, self.chk_ac_border, self.chk_ac_blur, self.chk_timed_blur,
+            self.chk_hd_upscale, self.chk_export_social_pack,
         ):
             if w is not None:
                 w.setEnabled(enabled)
@@ -600,6 +670,7 @@ class ExportVideoDialog(QDialog):
         edits["anti_copyright_border"] = 1 if self.chk_ac_border.isChecked() else 0
         edits["auto_blur_chinese"] = 1 if self.chk_ac_blur.isChecked() else 0
         edits["auto_timed_blur"] = 1 if self.chk_timed_blur.isChecked() else 0
+        edits["hd_upscale_enabled"] = 1 if self.chk_hd_upscale.isChecked() else 0
         edits["lut_preset"] = self.cb_lut_preset.currentData() or "none"
         keep_bgm_only = bool(edits.get("keep_bgm_only", 0))
         if keep_bgm_only:

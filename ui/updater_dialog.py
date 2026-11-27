@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFileDialog, QProgressBar, QMessageBox, QTextEdit, QFrame
 )
 from core.updater import (
-    InAppPackageUpdater, APP_VERSION,
+    InAppPackageUpdater, APP_VERSION, get_effective_app_version,
     GITHUB_REPO_URL, GITHUB_MANIFEST_URL,
     get_updater_config,
 )
@@ -64,9 +64,10 @@ class PackageUpdaterDialog(QDialog):
         self._dl_worker = None
 
         kh = lang == "kh"
+        self.cur_ver = get_effective_app_version()
         self.setWindowTitle(
-            f"🔄 ប្រព័ន្ធទាញយកការ Update កូដ (GitHub) — v{APP_VERSION}" if kh
-            else f"🔄 In-App Code Updater (GitHub) — v{APP_VERSION}"
+            f"🔄 ប្រព័ន្ធទាញយកការ Update កូដ (GitHub) — v{self.cur_ver}" if kh
+            else f"🔄 In-App Code Updater (GitHub) — v{self.cur_ver}"
         )
         self.resize(640, 520)
         self._build_ui()
@@ -105,8 +106,8 @@ class PackageUpdaterDialog(QDialog):
         h_layout.setSpacing(4)
 
         lbl_title = QLabel(
-            f"🚀 Ai Summarai Studio — កំណែបច្ចុប្បន្ន៖ v{APP_VERSION}" if kh
-            else f"🚀 Ai Summarai Studio — Current Version: v{APP_VERSION}"
+            f"🚀 Ai Summarai Studio — កំណែបច្ចុប្បន្ន៖ v{self.cur_ver}" if kh
+            else f"🚀 Ai Summarai Studio — Current Version: v{self.cur_ver}"
         )
         lbl_title.setStyleSheet("font-size: 15px; font-weight: 800; color: #10B981; border: none; background: transparent;")
 
@@ -344,21 +345,21 @@ class PackageUpdaterDialog(QDialog):
             self.lbl_check_status.setStyleSheet("color: #10B981; font-weight: 700;")
 
             info_text = f"កំណែថ្មី៖ v{rem_v} ({date})\n" if date else f"កំណែថ្មី៖ v{rem_v}\n"
-            info_text += f"កំណែបច្ចុប្បន្ន៖ v{APP_VERSION}\n\n"
+            info_text += f"កំណែបច្ចុប្បន្ន៖ v{self.cur_ver}\n\n"
             info_text += f"ចំណុចកែប្រែថ្មីៗ (Changelog)៖\n{res.get('changelog', '')}"
             self.txt_changelog.setText(info_text)
             self.btn_install_pkg.setStyleSheet(
                 "background-color: #10B981; color: white; font-weight: 700; padding: 8px 20px; border-radius: 6px;"
             )
         else:
-            rem_v = res.get("remote_version", APP_VERSION)
+            rem_v = res.get("remote_version", self.cur_ver)
             self.lbl_check_status.setText(
-                f"✅ កម្មវិធីជាកំណែចុងក្រោយបង្អស់ហើយ (v{APP_VERSION})" if kh
-                else f"✅ You have the latest version (v{APP_VERSION})"
+                f"✅ កម្មវិធីជាកំណែចុងក្រោយបង្អស់ហើយ (v{self.cur_ver})" if kh
+                else f"✅ You have the latest version (v{self.cur_ver})"
             )
             self.lbl_check_status.setStyleSheet("color: #38BDF8; font-weight: 700;")
             self.txt_changelog.setText(
-                f"គ្មានកំណែថ្មីជាងនេះទេ (Current: v{APP_VERSION}, GitHub: v{rem_v})។\n\n"
+                f"គ្មានកំណែថ្មីជាងនេះទេ (Current: v{self.cur_ver}, GitHub: v{rem_v})។\n\n"
                 f"ចំណុចកែប្រែចុងក្រោយ៖\n{res.get('changelog', '• ដំណើរការប្រក្រតី')}"
             )
 
