@@ -35,13 +35,18 @@ def read_current_version() -> str:
 
 
 def bump_version(ver: str) -> str:
-    parts = ver.split(".")
-    if len(parts) >= 3 and parts[-1].isdigit():
-        parts[-1] = str(int(parts[-1]) + 1)
-        return ".".join(parts)
-    elif len(parts) == 2 and parts[-1].isdigit():
-        return f"{ver}.1"
-    return f"{ver}.1"
+    nums = [int(n) for n in re.findall(r"\d+", (ver or "1.0.0").strip())]
+    while len(nums) < 3:
+        nums.append(0)
+    major, minor, patch = nums[0], nums[1], nums[2]
+    patch += 1
+    if patch >= 10:
+        patch = 0
+        minor += 1
+    if minor >= 10:
+        minor = 0
+        major += 1
+    return f"{major}.{minor}.{patch}"
 
 
 def update_version_in_files(new_ver: str):

@@ -1,41 +1,88 @@
+import argparse
 import datetime
 import json
 import os
 import re
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-APP_VERSION = "1.6.0"
-GITHUB_OWNER = "xiaohonger80-creator"
-GITHUB_REPO = "Ai-Summarai-Tool"
-GITHUB_BRANCH = "main"
-GITHUB_REPO_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}"
-GITHUB_MANIFEST_URL = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{GITHUB_BRANCH}/version.json"
-GITHUB_UPDATE_ZIP_URL = (
-    f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{GITHUB_BRANCH}/release_output/AiSummarai_Update.zip"
+from core.updater import (
+    InAppPackageUpdater,
+    GITHUB_OWNER,
+    GITHUB_REPO,
+    GITHUB_BRANCH,
+    GITHUB_REPO_URL,
+    GITHUB_MANIFEST_URL,
+    GITHUB_UPDATE_ZIP_URL,
 )
 
 
-def main():
+def read_current_version() -> str:
+    upd_path = ROOT / "core" / "updater.py"
+    if upd_path.exists():
+        m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', upd_path.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1).strip()
+    v_path = ROOT / "version.json"
+    if v_path.exists():
+        try:
+            d = json.loads(v_path.read_text(encoding="utf-8"))
+            if d.get("version"):
+                return str(d["version"]).strip()
+        except Exception:
+            pass
+    return "1.6.0"
+
+
+def main(target_version: str = "", bump: bool = False, changelog: str = ""):
+    if not target_version and not bump and len(sys.argv) > 1 and Path(sys.argv[0]).name == "sync_and_pack.py":
+        parser = argparse.ArgumentParser(description="Sync & Package Ai Summarai (GitHub Auto-Updater)")
+        parser.add_argument("--bump", action="store_true", help="Auto-increment version with 0..9 rollover (e.g. 1.6.9 -> 1.7.0)")
+        parser.add_argument("--version", default="", help="Explicit target version (e.g. 1.6.1)")
+        parser.add_argument("--changelog", default="", help="Custom release changelog")
+        args = parser.parse_args()
+        target_version = args.version.strip()
+        bump = args.bump
+        changelog = args.changelog.strip()
+
+    curr_ver = read_current_version()
+    if target_version:
+        app_version = target_version
+    elif bump:
+        app_version = InAppPackageUpdater.bump_version(curr_ver)
+    else:
+        app_version = curr_ver
+
     print("=" * 60)
-    print(f"  Sync & Package Ai Summarai v{APP_VERSION} (GitHub Update Engine)")
+    print(f"  Sync & Package Ai Summarai v{app_version} (GitHub Update Engine)")
+    if app_version != curr_ver:
+        print(f"  Auto-Bump Rollover: v{curr_ver} -> v{app_version}")
     print("=" * 60)
 
     # 1. Update core/updater.py
     upd_path = ROOT / "core" / "updater.py"
     if upd_path.exists():
         t = upd_path.read_text(encoding="utf-8")
-        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "{APP_VERSION}"', t, count=1)
+        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "{app_version}"', t, count=1)
         upd_path.write_text(t, encoding="utf-8")
-        print(f"[OK] Updated core/updater.py to v{APP_VERSION}")
+        print(f"[OK] Updated core/updater.py to v{app_version}")
 
     # 2. Update updater_config.json (GitHub Official Server)
     cfg_path = ROOT / "updater_config.json"
+    existing_token = ""
+    if cfg_path.exists():
+        try:
+            existing_token = json.loads(cfg_path.read_text(encoding="utf-8")).get("github_token", "")
+        except Exception:
+            pass
     cfg = {
-        "app_version": APP_VERSION,
+        "app_version": app_version,
         "update_provider": "github",
         "github_repo_url": GITHUB_REPO_URL,
         "github_branch": GITHUB_BRANCH,
@@ -44,57 +91,69 @@ def main():
         "auto_check_updates": True,
         "last_check_timestamp": 0,
     }
+    if existing_token:
+        cfg["github_token"] = existing_token
     cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[OK] Updated updater_config.json -> GitHub ({GITHUB_OWNER}/{GITHUB_REPO})")
 
     # 3. Update version.json
+    default_changelog = (
+        "• 🔢 Auto Rollover Versioning: ប្រព័ន្ធដំឡើងលេខកំណែស្វ័យប្រវត្តិពេលកែកូដ/បន្ថែមមុខងារ (1.6.1 -> 1.6.9 -> 1.7.0 -> 2.0.0)។\n"
+        "• 🐙 GitHub Auto-Updater: ទាញយក Update ផ្ទាល់ពី GitHub ផ្លូវការ (លឿន មានស្ថេរភាព និងគ្មានដែនកំណត់ Google Drive)។\n"
+        "• 📚 Series Profile, 🎼 AI Vocal Remover, 🖼️ AI Hook Banner & Thumbnail, 🎬 Intro/Outro Stitcher, 🚀 1-Click Auto Pipeline។\n"
+        "• ⚡ AI Viral Shorts Clipper (9:16), 🎵 Emotion SFX Auto-Matcher, 🔑 Multi-API 429 Failover, ✨ HD 1080p Upscaler & Social Pack។"
+    )
     v_path = ROOT / "version.json"
     v_data = {
-        "version": APP_VERSION,
-        "app_version": APP_VERSION,
+        "version": app_version,
+        "app_version": app_version,
         "provider": "github",
         "release_date": datetime.datetime.now().strftime("%Y-%m-%d"),
         "repo_url": GITHUB_REPO_URL,
         "manifest_url": GITHUB_MANIFEST_URL,
         "download_url": GITHUB_UPDATE_ZIP_URL,
-        "changelog": (
-            "• 🐙 GitHub Auto-Updater: ប្តូរប្រព័ន្ធ Update ពី Google Drive មក GitHub ផ្លូវការ (លឿន មានស្ថេរភាព និងគ្មានដែនកំណត់ Download)។\n"
-            "• 📚 Series Profile & Character Voice Memory: រក្សាទុក និងផ្ទុកសំណុំរឿងភាគ (សំឡេងតួអង្គ, Glossary, Subtitle/Mask Layout, Intro/Outro) ដោយស្វ័យប្រវត្តិគ្រប់ភាគ ១–៥០។\n"
-            "• 🎼 AI Vocal Remover (Keep BGM Only) + 🖼️ AI Hook Banner & Thumbnail + 🎬 Auto Intro/Outro Stitcher + 🚀 1-Click Auto Dub & Export។\n"
-            "• ⚡ AI Viral Shorts Clipper (9:16), 🎵 Auto-Place Emotion SFX & BGM, 🔑 Multi-API Round-Robin & 429 Failover, ✨ HD Clarity Upscaler 1080p និង 📲 Social Pack។"
-        ),
+        "changelog": changelog or default_changelog,
     }
     v_path.write_text(json.dumps(v_data, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"[OK] Updated version.json to v{APP_VERSION} (GitHub URLs)")
+    print(f"[OK] Updated version.json to v{app_version} (GitHub URLs)")
 
     # 4. Update version_info.txt
     v_info_path = ROOT / "version_info.txt"
     if v_info_path.exists():
         try:
-            v_parts = [p for p in APP_VERSION.split(".") if p.isdigit()]
+            v_parts = [p for p in app_version.split(".") if p.isdigit()]
             while len(v_parts) < 4:
                 v_parts.append("0")
             tuple_str = f"({', '.join(v_parts[:4])})"
             vt = v_info_path.read_text(encoding="utf-8")
             vt = re.sub(r'filevers=\([^)]+\)', f'filevers={tuple_str}', vt)
             vt = re.sub(r'prodvers=\([^)]+\)', f'prodvers={tuple_str}', vt)
-            vt = re.sub(r"StringStruct\('FileVersion',\s*'[^']+'\)", f"StringStruct('FileVersion', '{APP_VERSION}')", vt)
-            vt = re.sub(r"StringStruct\('ProductVersion',\s*'[^']+'\)", f"StringStruct('ProductVersion', '{APP_VERSION}')", vt)
+            vt = re.sub(r"StringStruct\('FileVersion',\s*'[^']+'\)", f"StringStruct('FileVersion', '{app_version}')", vt)
+            vt = re.sub(r"StringStruct\('ProductVersion',\s*'[^']+'\)", f"StringStruct('ProductVersion', '{app_version}')", vt)
             v_info_path.write_text(vt, encoding="utf-8")
-            print(f"[OK] Updated version_info.txt to v{APP_VERSION}")
+            print(f"[OK] Updated version_info.txt to v{app_version}")
         except Exception as e:
             print(f"[WARN] version_info.txt: {e}")
 
-    # 5. Update AiSummarai_Installer.iss
+    # 5. Update AiSummarai_Installer.iss & README.md
     iss_path = ROOT / "AiSummarai_Installer.iss"
     if iss_path.exists():
         try:
             it = iss_path.read_text(encoding="utf-8")
-            it = re.sub(r'#define MyAppVersion\s+"[^"]+"', f'#define MyAppVersion "{APP_VERSION}"', it)
+            it = re.sub(r'#define MyAppVersion\s+"[^"]+"', f'#define MyAppVersion "{app_version}"', it)
             iss_path.write_text(it, encoding="utf-8")
-            print(f"[OK] Updated AiSummarai_Installer.iss to v{APP_VERSION}")
+            print(f"[OK] Updated AiSummarai_Installer.iss to v{app_version}")
         except Exception as e:
             print(f"[WARN] AiSummarai_Installer.iss: {e}")
+
+    readme_path = ROOT / "README.md"
+    if readme_path.exists():
+        try:
+            rt = readme_path.read_text(encoding="utf-8")
+            rt = re.sub(r"\(`v\d+\.\d+\.\d+`\)", f"(`v{app_version}`)", rt)
+            readme_path.write_text(rt, encoding="utf-8")
+        except Exception:
+            pass
 
     # 6. Sync to dist/AiSummarai
     dist_dir = ROOT / "dist" / "AiSummarai"
@@ -161,7 +220,8 @@ def main():
         shutil.copy2(v_path, dist_dir / "version.json")
     print("[OK] Saved version.json & release_output/version.json")
 
-    print("\n🎉 ALL GITHUB VERSION & PACKAGING TASKS COMPLETED!")
+    print(f"\n🎉 ALL GITHUB VERSION & PACKAGING TASKS COMPLETED (v{app_version})!")
+    return app_version
 
 
 if __name__ == "__main__":

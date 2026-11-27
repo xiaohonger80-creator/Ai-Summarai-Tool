@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 CONFIG_FILENAME = "updater_config.json"
 
 # Official GitHub Update Server (migrated from Google Drive -> GitHub)
@@ -111,6 +111,25 @@ class InAppPackageUpdater:
                     break
             parts.append(int(num) if num else 0)
         return tuple(parts) if parts else (0, 0, 0)
+
+    @staticmethod
+    def bump_version(v_str: str) -> str:
+        """
+        Auto decimal rollover versioning (0..9 carry-over):
+        e.g. 1.6.0 -> 1.6.1 -> ... -> 1.6.9 -> 1.7.0 -> ... -> 1.9.9 -> 2.0.0
+        """
+        nums = [int(n) for n in re.findall(r"\d+", (v_str or "1.0.0").strip())]
+        while len(nums) < 3:
+            nums.append(0)
+        major, minor, patch = nums[0], nums[1], nums[2]
+        patch += 1
+        if patch >= 10:
+            patch = 0
+            minor += 1
+        if minor >= 10:
+            minor = 0
+            major += 1
+        return f"{major}.{minor}.{patch}"
 
     @classmethod
     def _build_headers(cls, github_token: str = "", accept: str = "") -> Dict[str, str]:
@@ -657,13 +676,7 @@ class InAppPackageUpdater:
                     pass
 
         if not new_version or cls._parse_ver(new_version) <= cls._parse_ver(APP_VERSION):
-            curr_v = APP_VERSION
-            v_parts = [p for p in curr_v.split(".") if p.isdigit()]
-            if len(v_parts) >= 3:
-                v_parts[-1] = str(int(v_parts[-1]) + 1)
-                new_version = ".".join(v_parts)
-            else:
-                new_version = f"{curr_v}.1"
+            new_version = cls.bump_version(APP_VERSION)
 
         # កត់ត្រា និងរក្សា GitHub config ទៅក្នុង source_root និង config បច្ចុប្បន្ន
         if new_version:

@@ -533,7 +533,12 @@ class DeepTestRunner:
     def test_updater_safe_extraction(self):
         from core.updater import InAppPackageUpdater, GITHUB_REPO_URL, GITHUB_MANIFEST_URL, get_updater_config
 
-        # 1. Verify GitHub URL parsing & raw URL normalization
+        # 1. Verify GitHub URL parsing, raw URL normalization & 0..9 decimal version rollover
+        assert InAppPackageUpdater.bump_version("1.6.0") == "1.6.1"
+        assert InAppPackageUpdater.bump_version("1.6.8") == "1.6.9"
+        assert InAppPackageUpdater.bump_version("1.6.9") == "1.7.0"
+        assert InAppPackageUpdater.bump_version("1.9.9") == "2.0.0"
+        assert InAppPackageUpdater.bump_version("1.5.10") == "1.6.0"
         assert InAppPackageUpdater.parse_github_repo("https://github.com/xiaohonger80-creator/Ai-Summarai-Tool.git") == (
             "xiaohonger80-creator", "Ai-Summarai-Tool", "main"
         )

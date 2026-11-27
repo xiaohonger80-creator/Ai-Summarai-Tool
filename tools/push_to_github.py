@@ -14,6 +14,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.updater import (
+    InAppPackageUpdater,
     GITHUB_OWNER,
     GITHUB_REPO,
     GITHUB_BRANCH,
@@ -61,11 +62,8 @@ def read_current_version() -> str:
 
 
 def bump_version(ver: str) -> str:
-    parts = ver.split(".")
-    if len(parts) >= 3 and parts[-1].isdigit():
-        parts[-1] = str(int(parts[-1]) + 1)
-        return ".".join(parts)
-    return f"{ver}.1"
+    """Auto decimal rollover (1.6.1 -> ... -> 1.6.9 -> 1.7.0 -> ... -> 1.9.9 -> 2.0.0)."""
+    return InAppPackageUpdater.bump_version(ver)
 
 
 def ask_input(prompt: str, default: str = "") -> str:
@@ -116,11 +114,17 @@ def update_version_files(new_ver: str, changelog: str):
         vt = re.sub(r"StringStruct\('ProductVersion',\s*'[^']+'\)", f"StringStruct('ProductVersion', '{new_ver}')", vt)
         VERSION_INFO_TXT.write_text(vt, encoding="utf-8")
 
-    # 5. AiSummarai_Installer.iss
+    # 5. AiSummarai_Installer.iss & README.md
     if ISS_FILE.exists():
         it = ISS_FILE.read_text(encoding="utf-8")
         it = re.sub(r'#define MyAppVersion\s+"[^"]+"', f'#define MyAppVersion "{new_ver}"', it)
         ISS_FILE.write_text(it, encoding="utf-8")
+
+    readme_f = ROOT_DIR / "README.md"
+    if readme_f.exists():
+        rt = readme_f.read_text(encoding="utf-8")
+        rt = re.sub(r"\(`v\d+\.\d+\.\d+`\)", f"(`v{new_ver}`)", rt)
+        readme_f.write_text(rt, encoding="utf-8")
 
     # 6. Build release_output/AiSummarai_Update.zip
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -218,9 +222,10 @@ def main():
     if args.version:
         new_ver = args.version.strip()
     elif args.auto:
-        new_ver = current_ver
+        new_ver = suggested_ver
+        print(f"\n[1] Auto-Bump Rollover: v{current_ver} -> v{new_ver}")
     else:
-        print(f"\n[1] កំណែបច្ចុប្បន្ន៖ v{current_ver}")
+        print(f"\n[1] កំណែបច្ចុប្បន្ន៖ v{current_ver} (Auto Rollover បន្ទាប់៖ v{suggested_ver})")
         new_ver = ask_input(f"    បញ្ចូលលេខ Version ថ្មី [Enter យក v{suggested_ver}]: ", suggested_ver)
 
     default_changelog = "• កែសម្រួលប្រព័ន្ធទូទៅ បង្កើនល្បឿន និងបន្ថែមមុខងារថ្មី (GitHub Auto-Update)"
