@@ -91,7 +91,7 @@ def main(target_version: str = "", bump: bool = False, changelog: str = ""):
     upd_path = ROOT / "core" / "updater.py"
     if upd_path.exists():
         t = upd_path.read_text(encoding="utf-8")
-        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1.7.5"', t, count=1)
+        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1"', t, count=1)
         upd_path.write_text(t, encoding="utf-8")
         print(f"[OK] Updated core/updater.py to v{app_version}")
 
