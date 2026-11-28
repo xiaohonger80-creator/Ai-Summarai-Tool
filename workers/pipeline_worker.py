@@ -213,7 +213,10 @@ class StudioPipelineWorker(QThread):
 
         bgm_wav_path: Optional[str] = None
         if "Disabled" not in dub_mode and segs:
-            separator = EngineFactory.create_vocal_separator(self.settings)
+            separator = EngineFactory.create_vocal_separator(
+                self.settings,
+                fallback_notice_cb=lambda msg: self.stage_changed.emit(msg),
+            )
             try:
                 bgm_target = str(self.output_dir / f"{Path(video_path).stem}_bgm.wav")
                 bgm_wav_path = separator.extract_bgm(video_path, bgm_target)
@@ -224,7 +227,10 @@ class StudioPipelineWorker(QThread):
             if self._is_cancelled:
                 return "", segs
 
-            dubber = EngineFactory.create_tts_dubber(self.settings)
+            dubber = EngineFactory.create_tts_dubber(
+                self.settings,
+                fallback_notice_cb=lambda msg: self.stage_changed.emit(msg),
+            )
             try:
                 tts_dir = str(self.output_dir / "dub_clips")
                 segs = dubber.synthesize_segments(

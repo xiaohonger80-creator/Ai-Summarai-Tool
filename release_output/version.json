@@ -1,11 +1,11 @@
 {
-  "version": "1.0.3",
-  "app_version": "1.0.3",
+  "version": "1.0.4",
+  "app_version": "1.0.4",
   "provider": "github",
   "release_date": "2026-11-28",
   "repo_url": "https://github.com/xiaohonger80-creator/Ai-Summarai-Tool",
   "manifest_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/version.json",
   "download_url": "https://raw.githubusercontent.com/xiaohonger80-creator/Ai-Summarai-Tool/main/release_output/AiSummarai_Update.zip",
   "changelog": "• កែសម្រួលប្រព័ន្ធទូទៅ បង្កើនល្បឿន និងបន្ថែមមុខងារថ្មី (GitHub Auto-Update)",
-  "file_size_kb": 1948.5
+  "file_size_kb": 1959.6
 }

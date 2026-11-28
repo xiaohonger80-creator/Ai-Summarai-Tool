@@ -45,6 +45,10 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "fish_speech_url": "http://127.0.0.1:8080",
     "default_voice": "km-KH-SreymomNeural",
     "auto_rate_sync": True,
+    "smart_workflow_preset": "Chinese Drama -> Khmer Dubbing (Demucs + Story Context + Khmer TTS)",
+    "ref_voice_wav": "",
+    "ref_voice_transcript": "",
+    "active_emotion_tag": "normal",
     "speaker_map": {
         "SPEAKER_00": {"voice": "km-KH-PisethNeural", "rate": "+0%", "pitch": "+0Hz"},
         "SPEAKER_01": {"voice": "km-KH-SreymomNeural", "rate": "+0%", "pitch": "+0Hz"},

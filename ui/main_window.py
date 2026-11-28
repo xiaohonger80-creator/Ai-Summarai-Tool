@@ -1472,6 +1472,7 @@ class MainWindow(QMainWindow):
         self.integrated_inspector.save_vfxproj_requested.connect(self._on_integrated_save_vfxproj)
         self.integrated_inspector.load_vfxproj_requested.connect(self._on_integrated_load_vfxproj)
         self.integrated_inspector.speaker_mapper_requested.connect(self._open_speaker_mapper_dialog)
+        self.integrated_inspector.inspector_tabs.emotion_tag_selected.connect(self._on_integrated_emotion_tag_selected)
         right_v.addWidget(self.integrated_inspector, 1)
 
         # Original Video Sound Slider + Keep BGM Only Vocal Remover Toggle (Feature 2)
@@ -2833,6 +2834,19 @@ class MainWindow(QMainWindow):
         vpath = item_dict.get("video_path", "")
         if vpath and Path(vpath).exists():
             self._load_video(vpath)
+
+    def _on_integrated_emotion_tag_selected(self, emotion_tag: str):
+        """បញ្ចូល Emotion Cue ([whisper], [laughing], [angry], [sad]) ទៅក្នុងជួរអក្សរខ្មែរដែលកំពុងជ្រើសរើសលើតារាង"""
+        from core.legacy_bridge import LegacyCompatibilityAdapter
+        row = self.table.currentRow()
+        if row < 0 and self.table.rowCount() > 0:
+            row = 0
+        if 0 <= row < self.table.rowCount():
+            kh_item = self.table.item(row, 3)
+            if kh_item:
+                new_txt = LegacyCompatibilityAdapter.apply_emotion_tag_to_text(kh_item.text(), emotion_tag)
+                kh_item.setText(new_txt)
+                self.status_lbl.setText(f"🎭 បានបញ្ចូលអារម្មណ៍ [{emotion_tag}] ទៅក្នុងជួរទី {row + 1}")
 
     def _on_integrated_render_preview(self, fx_settings: dict):
         """អនុវត្តការកំណត់ 3D LUT, Mask, និង Animated Text ពីផ្ទាំង VideoFX/AI Studio ទៅលើ Video Player ផ្ទាល់"""

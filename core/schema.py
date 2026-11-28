@@ -2,13 +2,15 @@
 """
 core/schema.py
 Unified Segment Data Schema shared across Extraction, Translation, Recap, Dubbing & VideoFX.
-Extended with `voice_fx` ("normal" | "inner_thought" | "phone_call" | "radio") and `audio_hash`.
+Extended with `voice_fx` ("normal" | "inner_thought" | "phone_call" | "radio"),
+`emotion` ("normal" | "whisper" | "laughing" | "angry" | "sad"), and `audio_hash`.
 """
 
 from dataclasses import dataclass
 from typing import Dict, Any, List
 
 VALID_VOICE_FX = ("normal", "inner_thought", "phone_call", "radio")
+VALID_EMOTIONS = ("normal", "whisper", "laughing", "angry", "sad")
 
 
 @dataclass
@@ -16,7 +18,7 @@ class SubtitleSegment:
     """
     Unified Subtitle & Dubbing Segment Schema:
     [{"id": 1, "start": 0.50, "end": 2.80, "speaker": "SPEAKER_01", "text": "Original text",
-      "translated": "", "dub_audio": "", "voice_fx": "normal", "audio_hash": ""}]
+      "translated": "", "dub_audio": "", "voice_fx": "normal", "emotion": "normal", "audio_hash": ""}]
     """
     id: int
     start: float                 # Start time in seconds (e.g. 0.50)
@@ -26,12 +28,16 @@ class SubtitleSegment:
     speaker: str = "SPEAKER_01"  # Speaker / Voice role identifier
     dub_audio: str = ""          # Generated TTS WAV/MP3 path for this segment
     voice_fx: str = "normal"     # "normal" | "inner_thought" | "phone_call" | "radio"
-    audio_hash: str = ""         # SHA-256 cache hash of (translated|voice|voice_fx|rate)
+    emotion: str = "normal"      # "normal" | "whisper" | "laughing" | "angry" | "sad"
+    audio_hash: str = ""         # SHA-256 cache hash of (translated|voice|voice_fx|emotion|rate)
 
     def to_dict(self) -> Dict[str, Any]:
         fx = str(self.voice_fx or "normal").lower().strip().replace(" ", "_")
         if fx not in VALID_VOICE_FX:
             fx = "normal"
+        em = str(self.emotion or "normal").lower().strip("[] ")
+        if em not in VALID_EMOTIONS:
+            em = "normal"
         return {
             "id": int(self.id),
             "start": round(float(self.start), 2),
@@ -41,6 +47,7 @@ class SubtitleSegment:
             "translated": str(self.translated or ""),
             "dub_audio": str(self.dub_audio or ""),
             "voice_fx": fx,
+            "emotion": em,
             "audio_hash": str(self.audio_hash or ""),
         }
 
@@ -57,6 +64,10 @@ class SubtitleSegment:
         if fx not in VALID_VOICE_FX:
             fx = "normal"
 
+        em = str(d.get("emotion") or "normal").lower().strip("[] ")
+        if em not in VALID_EMOTIONS:
+            em = "normal"
+
         return cls(
             id=int(d.get("id") or default_id),
             start=round(float(start_val or 0.0), 2),
@@ -66,6 +77,7 @@ class SubtitleSegment:
             speaker=str(d.get("speaker") or d.get("voice_override") or "SPEAKER_01").strip(),
             dub_audio=str(d.get("dub_audio") or d.get("tts_audio_path") or "").strip(),
             voice_fx=fx,
+            emotion=em,
             audio_hash=str(d.get("audio_hash") or "").strip(),
         )
 

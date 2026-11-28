@@ -189,6 +189,7 @@ class AllInOneStudioWindow(QMainWindow):
         self.inspector_tabs = InspectorTabs(initial_settings=self.settings, parent=self)
         self.inspector_tabs.settings_changed.connect(self._on_inspector_settings_changed)
         self.inspector_tabs.speaker_mapper_requested.connect(self.open_speaker_mapper)
+        self.inspector_tabs.emotion_tag_selected.connect(self.segment_table.apply_emotion_to_selected_row)
         main_splitter.addWidget(self.inspector_tabs)
 
         main_splitter.setStretchFactor(0, 65)

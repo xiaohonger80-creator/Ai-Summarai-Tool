@@ -2,14 +2,18 @@
 """
 core/engine_factory.py
 Central Factory instantiating user-selected Extractor, Translator, Recap/Dubber,
-and VideoFX modules using the Strategy & Factory Patterns.
+and VideoFX modules using the Strategy & Factory Patterns + EngineRegistry & LegacyCompatibilityAdapter.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Callable
+
+from core.engine_registry import EngineRegistry
+from core.legacy_bridge import LegacyCompatibilityAdapter
 
 from core.extractors.base import BaseExtractor
 from core.extractors.asr_funasr import FunASRExtractor
 from core.extractors.asr_whisper import WhisperExtractor
+from core.extractors.asr_whisper_cpp import WhisperCppExtractor
 from core.extractors.ocr_paddle import PaddleOCRExtractor
 from core.extractors.hybrid_extractor import HybridExtractor
 
@@ -38,12 +42,18 @@ class EngineFactory:
     @classmethod
     def create_extractor(cls, engine_name: str, settings: Dict[str, Any] = None) -> BaseExtractor:
         s = settings or {}
-        en = (engine_name or "").lower()
-        if "funasr" in en:
+        resolved = LegacyCompatibilityAdapter.resolve_engine_key(
+            engine_name,
+            "Hybrid (OCR Primary + ASR Check)",
+        ).lower()
+        if "whisper.cpp" in resolved or "low-vram" in resolved:
+            return WhisperCppExtractor(model_size="base")
+        elif "funasr" in resolved:
             return FunASRExtractor()
-        elif "whisper" in en:
-            return WhisperExtractor(model_size="large-v3")
-        elif "ocr" in en and "hybrid" not in en:
+        elif "whisper" in resolved:
+            model_sz = "base" if s.get("hardware_profile") == "low" else "large-v3"
+            return WhisperExtractor(model_size=model_sz)
+        elif "ocr" in resolved and "hybrid" not in resolved:
             return PaddleOCRExtractor(
                 confidence_threshold=float(s.get("ocr_confidence_threshold", 0.75)),
                 sample_fps=float(s.get("sample_fps", 2.0)),
@@ -98,15 +108,24 @@ class EngineFactory:
         return RecapWriter(client=client, target_minutes=float(s.get("recap_target_minutes", 3.0)))
 
     @classmethod
-    def create_vocal_separator(cls, settings: Dict[str, Any] = None) -> VocalSeparator:
+    def create_vocal_separator(
+        cls,
+        settings: Dict[str, Any] = None,
+        fallback_notice_cb: Optional[Callable[[str], None]] = None,
+    ) -> VocalSeparator:
         s = settings or {}
         return VocalSeparator(
             mode=s.get("vocal_removal_engine", "FFmpeg Vocal Suppression"),
             duck_db=float(s.get("bgm_duck_db", -18.0)),
+            fallback_notice_cb=fallback_notice_cb,
         )
 
     @classmethod
-    def create_tts_dubber(cls, settings: Dict[str, Any] = None) -> TTSDubber:
+    def create_tts_dubber(
+        cls,
+        settings: Dict[str, Any] = None,
+        fallback_notice_cb: Optional[Callable[[str], None]] = None,
+    ) -> TTSDubber:
         s = settings or {}
         return TTSDubber(
             engine_name=s.get("tts_engine", "Edge-TTS (Fast Online/Fallback)"),
@@ -116,6 +135,9 @@ class EngineFactory:
             fish_speech_url=s.get("fish_speech_url", "http://127.0.0.1:8080"),
             cache_dir=s.get("cache_dir", "data/cache/tts"),
             speaker_map=s.get("speaker_map", {}),
+            ref_voice_wav=s.get("ref_voice_wav", ""),
+            ref_voice_transcript=s.get("ref_voice_transcript", ""),
+            fallback_notice_cb=fallback_notice_cb,
         )
 
     @classmethod

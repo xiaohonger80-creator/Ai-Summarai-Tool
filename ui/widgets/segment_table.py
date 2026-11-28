@@ -167,6 +167,28 @@ class SegmentTable(QTableWidget):
                         combo.setCurrentIndex(i)
                         break
 
+    def apply_emotion_to_selected_row(self, emotion_tag: str) -> None:
+        """Inserts or updates the emotion cue prefix (`[whisper]`, `[laughing]`, etc.) on the selected row."""
+        from core.legacy_bridge import LegacyCompatibilityAdapter
+        row = self.currentRow()
+        if not (0 <= row < len(self._segments)):
+            if len(self._segments) > 0:
+                row = 0
+            else:
+                return
+        self._segments[row]["emotion"] = emotion_tag
+        cur_txt = self._segments[row].get("translated") or self._segments[row].get("text") or ""
+        updated_txt = LegacyCompatibilityAdapter.apply_emotion_tag_to_text(cur_txt, emotion_tag)
+        self._segments[row]["translated"] = updated_txt
+        self._updating = True
+        try:
+            it = self.item(row, 5)
+            if it:
+                it.setText(updated_txt)
+        finally:
+            self._updating = False
+        self.segments_edited.emit(self._segments)
+
     def export_srt(self, out_srt_path: str, use_translated: bool = True) -> str:
         lines: List[str] = []
         for idx, raw in enumerate(self._segments, start=1):

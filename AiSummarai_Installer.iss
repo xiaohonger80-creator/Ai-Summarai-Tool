@@ -1,6 +1,6 @@
 ; Inno Setup Script for Ai Summarai (Standard Windows Next -> Next -> Install Wizard)
 #define MyAppName "Ai Summarai"
-#define MyAppVersion "1.0.3"
+#define MyAppVersion "1.0.4"
 #define MyAppPublisher "Ai Summarai Studio"
 #define MyAppExeName "AiSummarai.exe"
 
