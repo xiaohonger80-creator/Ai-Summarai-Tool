@@ -56,11 +56,18 @@ def find_git_exe() -> str:
 
 
 def read_current_version() -> str:
+    try:
+        from core.updater import get_effective_app_version
+        v = get_effective_app_version()
+        if v and "." in v:
+            return v
+    except Exception:
+        pass
     if UPDATER_PY.exists():
         m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', UPDATER_PY.read_text(encoding="utf-8"))
-        if m:
+        if m and "." in m.group(1):
             return m.group(1)
-    return "1.6.0"
+    return "1.8.1"
 
 
 def fetch_remote_github_version(timeout: int = 6) -> str:

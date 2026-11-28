@@ -771,6 +771,55 @@ class MainWindow(QMainWindow):
         )
         top_layout.addWidget(self.lbl_encoder)
 
+        # Extracted Quick-Action Buttons directly on Top Bar (Re-do Workflow, All-in-One Studio, VideoFX, Setup & AI)
+        self.btn_top_redo = QPushButton("🔄 កំណត់ឡើងវិញ" if self.lang == "kh" else "🔄 Re-do / Reset")
+        self.btn_top_redo.setObjectName("BtnGlass")
+        self.btn_top_redo.setFixedHeight(30)
+        self.btn_top_redo.setStyleSheet(
+            "QPushButton { background: #1F1624; border: 1.5px solid #F59E0B; border-radius: 6px; "
+            "padding: 2px 10px; color: #FBBF24; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #3B2314; border-color: #FDE68A; color: #FFFFFF; }"
+        )
+        self.btn_top_redo.setToolTip("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps — លុប ឬធ្វើឡើងវិញតាមជំហាន)")
+        self.btn_top_redo.clicked.connect(self._open_reset_project_dialog)
+        top_layout.addWidget(self.btn_top_redo)
+
+        self.btn_top_aio = QPushButton("🚀 AI Studio")
+        self.btn_top_aio.setObjectName("BtnGlass")
+        self.btn_top_aio.setFixedHeight(30)
+        self.btn_top_aio.setStyleSheet(
+            "QPushButton { background: #132238; border: 1.5px solid #3B82F6; border-radius: 6px; "
+            "padding: 2px 10px; color: #60A5FA; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #1E3A8A; border-color: #93C5FD; color: #FFFFFF; }"
+        )
+        self.btn_top_aio.setToolTip("🚀 បើកផ្ទាំង All-in-One AI Studio (Recap, Dubbing, Batch Auto-Splitter & VideoFX)")
+        self.btn_top_aio.clicked.connect(self._open_all_in_one_studio)
+        top_layout.addWidget(self.btn_top_aio)
+
+        self.btn_top_videofx = QPushButton("🎬 VideoFX")
+        self.btn_top_videofx.setObjectName("BtnGlass")
+        self.btn_top_videofx.setFixedHeight(30)
+        self.btn_top_videofx.setStyleSheet(
+            "QPushButton { background: #1A162B; border: 1.5px solid #A855F7; border-radius: 6px; "
+            "padding: 2px 10px; color: #C084FC; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #3B0764; border-color: #E9D5FF; color: #FFFFFF; }"
+        )
+        self.btn_top_videofx.setToolTip("🎬 បើកផ្ទាំង VideoFX Studio (3D LUTs, Masking & Animated Text)")
+        self.btn_top_videofx.clicked.connect(self._open_videofx_studio)
+        top_layout.addWidget(self.btn_top_videofx)
+
+        self.btn_top_setup = QPushButton("🟢 Setup && AI")
+        self.btn_top_setup.setObjectName("BtnGlass")
+        self.btn_top_setup.setFixedHeight(30)
+        self.btn_top_setup.setStyleSheet(
+            "QPushButton { background: #0F241D; border: 1.5px solid #10B981; border-radius: 6px; "
+            "padding: 2px 10px; color: #34D399; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: #064E3B; border-color: #6EE7B7; color: #FFFFFF; }"
+        )
+        self.btn_top_setup.setToolTip("🛠️ ពិនិត្យប្រព័ន្ធ & ម៉ូដែល AI (Setup & Models Manager — RTX GPU, FFmpeg & Ollama)")
+        self.btn_top_setup.clicked.connect(self._open_setup_manager_dialog)
+        top_layout.addWidget(self.btn_top_setup)
+
         top_layout.addStretch()
 
         # Direct Workflow View Button on Top Bar (1-Click Access)
@@ -804,20 +853,20 @@ class MainWindow(QMainWindow):
         self.act_glossary = self.srt_menu.addAction("", self._open_glossary)
         self.act_caption = self.srt_menu.addAction("", self._open_ai_caption)
 
-        # Tools Menu Actions
+        # Tools Menu Actions (using && so Qt never turns & into _ underscore)
         self.act_tool_projects = self.tools_menu.addAction("📁 គម្រោងចាស់ៗ (Projects)", self._open_projects_dialog)
         self.act_tool_batch = self.tools_menu.addAction("🎞️ បញ្ចូលច្រើន (Batch Composer)", self._open_multi_video_composer)
         self.act_tool_viral_shorts = self.tools_menu.addAction("⚡ Auto-Cut Viral Shorts (កាត់ឈុតខ្លីៗស្វ័យប្រវត្តិ)", self._run_auto_cut_viral_shorts)
         self.tools_menu.addMenu(self.srt_menu)
         self.act_tool_glossary = self.tools_menu.addAction("📖 វចនានុក្រម (Glossary)", self._open_glossary)
-        self.act_tool_find_replace = self.tools_menu.addAction("🔍 កែពាក្យខុស (Find & Replace)", self._open_find_replace)
+        self.act_tool_find_replace = self.tools_menu.addAction("🔍 កែពាក្យខុស (Find && Replace)", self._open_find_replace)
         self.act_tool_clean_zh = self.tools_menu.addAction("🧹 សម្អាតអក្សរចិនចេញពីតារាង (Clean Chinese in Script)", self._clean_chinese_from_khmer_script)
         self.act_tool_voice_clone = self.tools_menu.addAction("🎙️ ក្លូនសំឡេងមនុស្ស (Voice Clone)", self._open_voice_clone_studio)
         self.act_tool_speaker_map = self.tools_menu.addAction("🗣️ កំណត់សំឡេងតួអង្គ (Multi-Speaker Role Mapper)", self._open_speaker_mapper_dialog)
-        self.act_tool_setup_mgr = self.tools_menu.addAction("🛠️ ពិនិត្យប្រព័ន្ធ & ម៉ូដែល AI (Setup & Models Manager)", self._open_setup_manager_dialog)
-        self.act_tool_videofx = self.tools_menu.addAction("🎬 VideoFX Studio (3D LUTs, Masking & Text)", self._open_videofx_studio)
-        self.act_tool_aio_studio = self.tools_menu.addAction("🚀 All-in-One AI Studio (Recap, Dub & FX)", self._open_all_in_one_studio)
-        self.act_tool_caption = self.tools_menu.addAction("🔥 ចំណងជើង & Hook សង្ខេប (AI Social Caption)", self._open_ai_caption)
+        self.act_tool_setup_mgr = self.tools_menu.addAction("🛠️ ពិនិត្យប្រព័ន្ធ && ម៉ូដែល AI (Setup && Models Manager)", self._open_setup_manager_dialog)
+        self.act_tool_videofx = self.tools_menu.addAction("🎬 VideoFX Studio (3D LUTs, Masking && Text)", self._open_videofx_studio)
+        self.act_tool_aio_studio = self.tools_menu.addAction("🚀 All-in-One AI Studio (Recap, Dub && FX)", self._open_all_in_one_studio)
+        self.act_tool_caption = self.tools_menu.addAction("🔥 ចំណងជើង && Hook សង្ខេប (AI Social Caption)", self._open_ai_caption)
         self.act_tool_redo = self.tools_menu.addAction("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps)", self._open_reset_project_dialog)
         self.workflow_submenu = self.tools_menu.addMenu("🔀 Workflow Views (មើលដំណើរការផ្ទាល់)")
         self.workflow_submenu.addAction("🔀 Visual Pipeline Flow (Flowchart ផ្ទាល់)", lambda: self._open_workflow_view(0, False))
@@ -1066,6 +1115,28 @@ class MainWindow(QMainWindow):
         step_layout.addWidget(self.btn_one_click_auto)
 
         step_layout.addStretch()
+
+        # Quick-Access Studio Buttons extracted from Tools Menu
+        self.btn_step_projects = QPushButton("📁 Projects")
+        self.btn_step_projects.setObjectName("BtnGlass")
+        self.btn_step_projects.setFixedHeight(30)
+        self.btn_step_projects.setToolTip("📁 បើកគម្រោងចាស់ៗ (Recent Projects)")
+        self.btn_step_projects.clicked.connect(self._open_projects_dialog)
+        step_layout.addWidget(self.btn_step_projects)
+
+        self.btn_step_voice_clone = QPushButton("🎙️ Voice Clone")
+        self.btn_step_voice_clone.setObjectName("BtnGlass")
+        self.btn_step_voice_clone.setFixedHeight(30)
+        self.btn_step_voice_clone.setToolTip("🎙️ ក្លូនសំឡេងមនុស្សពិត (Voice Clone Studio)")
+        self.btn_step_voice_clone.clicked.connect(self._open_voice_clone_studio)
+        step_layout.addWidget(self.btn_step_voice_clone)
+
+        self.btn_step_roles = QPushButton("🗣️ Roles")
+        self.btn_step_roles.setObjectName("BtnGlass")
+        self.btn_step_roles.setFixedHeight(30)
+        self.btn_step_roles.setToolTip("🗣️ កំណត់សំឡេងតួអង្គ (Multi-Speaker Role Mapper)")
+        self.btn_step_roles.clicked.connect(self._open_speaker_mapper_dialog)
+        step_layout.addWidget(self.btn_step_roles)
 
         # Ghost utility buttons
         self.btn_workflow_views = QPushButton("🔀 Workflow Views ▾")
@@ -1544,6 +1615,8 @@ class MainWindow(QMainWindow):
             self.status_lbl.setText(tr(L, "status_loaded", name=Path(self.video_path).name))
 
         self.btn_open.setText(tr(L, "btn_open"))
+        if hasattr(self, "btn_top_redo"):
+            self.btn_top_redo.setText("🔄 កំណត់ឡើងវិញ" if L == "kh" else "🔄 Re-do / Reset")
         if hasattr(self, "btn_top_workflow"):
             self.btn_top_workflow.setText("🔀 មើលដំណើរការ" if L == "kh" else "🔀 Workflow View")
         if hasattr(self, "btn_workflow_views"):
@@ -1555,7 +1628,7 @@ class MainWindow(QMainWindow):
             self.act_tool_projects.setText(tr(L, "btn_projects"))
             self.act_tool_batch.setText(tr(L, "btn_batch"))
             self.act_tool_glossary.setText("📖 វចនានុក្រម" if L == "kh" else "📖 Glossary")
-            self.act_tool_find_replace.setText("🔍 កែពាក្យខុស" if L == "kh" else "🔍 Find & Replace")
+            self.act_tool_find_replace.setText("🔍 កែពាក្យខុស" if L == "kh" else "🔍 Find && Replace")
             self.act_tool_voice_clone.setText("🎙️ ក្លូនសំឡេងមនុស្ស" if L == "kh" else "🎙️ Voice Clone")
             self.act_tool_settings.setText(tr(L, "btn_settings"))
         self.btn_projects.setText(tr(L, "btn_projects"))
