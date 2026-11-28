@@ -23,7 +23,29 @@ from core.updater import (
 )
 
 
+def fetch_remote_github_version(timeout: int = 5) -> str:
+    """Fetch live published version from GitHub raw version.json directly with cache-busting."""
+    url = f"{GITHUB_MANIFEST_URL}?t={int(datetime.datetime.now().timestamp())}"
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "AiSummarai-Updater", "Cache-Control": "no-cache", "Pragma": "no-cache"}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            v = str(data.get("version") or data.get("app_version") or "").strip().lstrip("vV")
+            if v:
+                return v
+    except Exception:
+        pass
+    return ""
+
+
 def read_current_version() -> str:
+    rem_v = fetch_remote_github_version()
+    if rem_v:
+        return rem_v
     upd_path = ROOT / "core" / "updater.py"
     if upd_path.exists():
         m = re.search(r'APP_VERSION\s*=\s*["\']([^"\']+)["\']', upd_path.read_text(encoding="utf-8"))
@@ -69,7 +91,7 @@ def main(target_version: str = "", bump: bool = False, changelog: str = ""):
     upd_path = ROOT / "core" / "updater.py"
     if upd_path.exists():
         t = upd_path.read_text(encoding="utf-8")
-        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1.7.2"', t, count=1)
+        t = re.sub(r'APP_VERSION\s*=\s*["\'][^"\']+["\']', f'APP_VERSION = "1.7.3"', t, count=1)
         upd_path.write_text(t, encoding="utf-8")
         print(f"[OK] Updated core/updater.py to v{app_version}")
 

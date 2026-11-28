@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 import zipfile
+import time
+from typing import Tuple, Optional
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +61,40 @@ def read_current_version() -> str:
         if m:
             return m.group(1)
     return "1.6.0"
+
+
+def fetch_remote_github_version(timeout: int = 6) -> str:
+    """Fetch the live published version from GitHub raw version.json directly with cache-busting."""
+    url = f"{GITHUB_MANIFEST_URL}?t={int(time.time())}"
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "AiSummarai-Updater",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            v = str(data.get("version") or data.get("app_version") or "").strip().lstrip("vV")
+            if v:
+                return v
+    except Exception as e:
+        print(f"    [INFO] មិនអាចទាញ Version ផ្ទាល់ពី GitHub: {e} (នឹងប្រើ Local)")
+    return ""
+
+
+def get_effective_base_version() -> Tuple[str, str, str]:
+    """
+    Returns: (base_version, remote_version, local_version)
+    Prioritizes the authoritative live published version on GitHub!
+    """
+    remote_ver = fetch_remote_github_version()
+    local_ver = read_current_version()
+    base_ver = remote_ver or local_ver
+    return base_ver, remote_ver, local_ver
 
 
 def bump_version(ver: str) -> str:
@@ -188,6 +224,30 @@ def update_version_files(new_ver: str, changelog: str):
         shutil.copy2(VERSION_JSON, dist_dir / "version.json")
         shutil.copy2(CONFIG_FILE, dist_dir / "updater_config.json")
 
+    # Sync to installed program directory if present
+    installed_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ai Summarai"
+    if installed_dir.exists():
+        for target_base in [installed_dir, installed_dir / "_internal"]:
+            t_core = target_base / "core"
+            t_core.mkdir(parents=True, exist_ok=True)
+            for cf in (ROOT_DIR / "core").glob("*.py"):
+                shutil.copy2(cf, t_core / cf.name)
+            t_ui = target_base / "ui"
+            t_ui.mkdir(parents=True, exist_ok=True)
+            for uf in (ROOT_DIR / "ui").glob("*.py"):
+                shutil.copy2(uf, t_ui / uf.name)
+        for fn in ["version.json", "updater_config.json", "verify_setup.py"]:
+            sp = ROOT_DIR / fn
+            if sp.exists():
+                shutil.copy2(sp, installed_dir / fn)
+        if (ROOT_DIR / "data").exists():
+            (installed_dir / "data").mkdir(parents=True, exist_ok=True)
+            for df in (ROOT_DIR / "data").glob("*.json"):
+                shutil.copy2(df, installed_dir / "data" / df.name)
+        for cache_dir in installed_dir.rglob("__pycache__"):
+            shutil.rmtree(cache_dir, ignore_errors=True)
+        print("    [OK] Synced updated files to installed App & _internal, purged __pycache__")
+
     return zip_path, size_kb
 
 
@@ -216,17 +276,24 @@ def main():
         sys.exit(1)
     print(f"[OK] Git: {git_exe}")
 
-    current_ver = read_current_version()
-    suggested_ver = bump_version(current_ver)
+    base_ver, remote_ver, local_ver = get_effective_base_version()
+    suggested_ver = bump_version(base_ver)
+
+    print(f"\n[1] ព័ត៌មានកំណែ (Version Discovery from GitHub & Local):")
+    if remote_ver:
+        print(f"    📡 កំណែសកម្មលើ GitHub (Remote Live): v{remote_ver}")
+    else:
+        print(f"    📡 មិនអាចទាញកំណែពី GitHub បានទេ (Offline/Fallback)")
+    print(f"    💻 កំណែក្នុងម៉ាស៊ីន (Local Repo): v{local_ver}")
+    print(f"    ⭐ កំណែមូលដ្ឋាន (Base Version ពី GitHub): v{base_ver} -> Rollover បន្ទាប់៖ v{suggested_ver}")
 
     if args.version:
-        new_ver = args.version.strip()
+        new_ver = args.version.strip().lstrip("vV")
     elif args.auto:
         new_ver = suggested_ver
-        print(f"\n[1] Auto-Bump Rollover: v{current_ver} -> v{new_ver}")
+        print(f"    Auto-Bump Rollover: v{base_ver} -> v{new_ver}")
     else:
-        print(f"\n[1] កំណែបច្ចុប្បន្ន៖ v{current_ver} (Auto Rollover បន្ទាប់៖ v{suggested_ver})")
-        new_ver = ask_input(f"    បញ្ចូលលេខ Version ថ្មី [Enter យក v{suggested_ver}]: ", suggested_ver)
+        new_ver = ask_input(f"    បញ្ចូលលេខ Version ថ្មី [Enter យក v{suggested_ver}]: ", suggested_ver).lstrip("vV")
 
     default_changelog = "• កែសម្រួលប្រព័ន្ធទូទៅ បង្កើនល្បឿន និងបន្ថែមមុខងារថ្មី (GitHub Auto-Update)"
     if args.changelog:

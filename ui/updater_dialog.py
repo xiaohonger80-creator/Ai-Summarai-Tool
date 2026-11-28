@@ -353,15 +353,29 @@ class PackageUpdaterDialog(QDialog):
             )
         else:
             rem_v = res.get("remote_version", self.cur_ver)
-            self.lbl_check_status.setText(
-                f"✅ កម្មវិធីជាកំណែចុងក្រោយបង្អស់ហើយ (v{self.cur_ver})" if kh
-                else f"✅ You have the latest version (v{self.cur_ver})"
-            )
-            self.lbl_check_status.setStyleSheet("color: #38BDF8; font-weight: 700;")
-            self.txt_changelog.setText(
-                f"គ្មានកំណែថ្មីជាងនេះទេ (Current: v{self.cur_ver}, GitHub: v{rem_v})។\n\n"
-                f"ចំណុចកែប្រែចុងក្រោយ៖\n{res.get('changelog', '• ដំណើរការប្រក្រតី')}"
-            )
+            is_ahead = InAppPackageUpdater._parse_ver(self.cur_ver) > InAppPackageUpdater._parse_ver(rem_v)
+            if is_ahead:
+                self.lbl_check_status.setText(
+                    f"🚀 កំណែបច្ចុប្បន្ន (v{self.cur_ver}) គឺថ្មីជាង GitHub (v{rem_v})" if kh
+                    else f"🚀 Current version (v{self.cur_ver}) is ahead of GitHub (v{rem_v})"
+                )
+                self.lbl_check_status.setStyleSheet("color: #38BDF8; font-weight: 700;")
+                self.txt_changelog.setText(
+                    f"ℹ️ ព័ត៌មានកំណែ៖ (Current: v{self.cur_ver} | GitHub: v{rem_v})\n"
+                    f"• ម៉ាស៊ីននេះកំពុងប្រើប្រាស់កំណែថ្មី Development Build (v{self.cur_ver})។\n"
+                    f"• កំណែសកម្មលើ GitHub គឺ v{rem_v}។\n\n"
+                    f"ចំណុចកែប្រែចុងក្រោយលើ GitHub៖\n{res.get('changelog', '• ដំណើរការប្រក្រតី')}"
+                )
+            else:
+                self.lbl_check_status.setText(
+                    f"✅ កម្មវិធីជាកំណែចុងក្រោយបង្អស់ហើយ (v{self.cur_ver})" if kh
+                    else f"✅ You have the latest version (v{self.cur_ver})"
+                )
+                self.lbl_check_status.setStyleSheet("color: #10B981; font-weight: 700;")
+                self.txt_changelog.setText(
+                    f"✅ កំណែបច្ចុប្បន្នត្រូវគ្នា ១០០% ជាមួយ GitHub (v{self.cur_ver})។\n\n"
+                    f"ចំណុចកែប្រែចុងក្រោយ៖\n{res.get('changelog', '• ដំណើរការប្រក្រតី')}"
+                )
 
     def _start_update(self):
         target = self._get_active_target()
