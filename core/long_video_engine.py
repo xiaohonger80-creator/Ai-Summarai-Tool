@@ -184,7 +184,7 @@ class LongVideoStreamEngine:
             for f in tmp_frames.glob("*.jpg"):
                 f.unlink(missing_ok=True)
 
-            vf = f"fps={fps},crop=iw:ih*{crop_ratio:.3f}:0:ih*{crop_y_offset:.3f},eq=contrast=1.25:brightness=0.02"
+            vf = f"fps={fps},crop=iw:ih*{crop_ratio:.3f}:0:ih*{crop_y_offset:.3f},scale='min(960,iw)':-2:flags=area,eq=contrast=1.25:brightness=0.02"
             hw = get_hardware_profile()
             ff_threads = str(min(2, hw["ffmpeg_threads"]))
             res = subprocess.run(

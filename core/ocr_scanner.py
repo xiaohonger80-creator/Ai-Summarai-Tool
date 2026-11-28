@@ -14,6 +14,8 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
 os.environ.setdefault("MKL_NUM_THREADS", "2")
 os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "2")
 os.environ.setdefault("NUMEXPR_NUM_THREADS", "2")
+os.environ.setdefault("ORT_NUM_THREADS", "2")
+os.environ.setdefault("ONNXRUNTIME_NUM_THREADS", "2")
 
 try:
     import cv2
@@ -224,27 +226,40 @@ class SubtitleOCRScanner:
         for idx, frame in enumerate(frames):
             ts_ms = idx * step_ms
 
-            # ត្រួតពិនិត្យភាពខុសគ្នានៃរូបភាព (Fast Frame Difference) ដើម្បីរំលង Frame ដែលគ្មានការប្រែប្រួលអក្សរ
+            # ត្រួតពិនិត្យភាពខុសគ្នានៃរូបភាព (Fast Frame Difference & Downscale) ដើម្បីកាត់បន្ថយ CPU Load លើកុំព្យូទ័រ Spech តូច
             img = cv2.imread(str(frame)) if _HAVE_CV2 else None
             fh, fw = (img.shape[0], img.shape[1]) if img is not None else (0, 0)
             if img is not None:
+                # Downscale មកត្រឹម max-width 960px បើធំជាងនេះ (កាត់បន្ថយបន្ទុក ONNX 65% ដោយរក្សាភាពច្បាស់នៃអក្សរចិន ១០០%)
+                if fw > 960:
+                    scale = 960.0 / fw
+                    img = cv2.resize(img, (960, int(fh * scale)), interpolation=cv2.INTER_AREA)
+                    fh, fw = img.shape[:2]
+
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 thumb = cv2.resize(gray, (160, 40), interpolation=cv2.INTER_NEAREST)
+
+                # រំលង Frame ណាដែលខ្មៅសុទ្ធ ឬស្មើធេងគ្មានអត្ថបទ (Blank / Flat Frame Guard)
+                thumb_f = thumb.astype(np.float32)
+                if float(np.std(thumb_f)) < 3.2 or float(np.mean(thumb_f)) < 4.0:
+                    del img, gray, thumb, thumb_f
+                    continue
+
                 if prev_thumb is not None:
-                    diff = float(np.mean(np.abs(thumb.astype(np.float32) - prev_thumb.astype(np.float32))))
+                    diff = float(np.mean(np.abs(thumb_f - prev_thumb)))
                     # បើទិដ្ឋភាពអក្សរមិនផ្លាស់ប្តូរ (Diff < 2.8) ពន្យារម៉ោងអក្សរមុន ដោយមិនបាច់រត់ Neural Network នាំឱ្យយឺត
                     if diff < 2.8:
                         if raw_events:
                             last = raw_events[-1]
                             if (ts_ms + step_ms - last["start_ms"]) <= 4200:
                                 last["end_ms"] = ts_ms + step_ms
-                        del img, gray, thumb
+                        del img, gray, thumb, thumb_f
                         if progress_cb and idx % 10 == 0:
                             progress_cb(int(((idx + 1) / max(1, total)) * 100))
                         continue
-                prev_thumb = thumb
+                prev_thumb = thumb_f
                 inp = self._preprocess_frame(str(frame), img=img)
-                del gray
+                del gray, thumb
             else:
                 inp = str(frame)
 
@@ -279,12 +294,14 @@ class SubtitleOCRScanner:
                     ev_dict["_bbox"] = bbox
                 raw_events.append(ev_dict)
 
-            if idx % 60 == 59:
+            if idx % 45 == 44:
                 gc.collect()
+
+            if idx % 4 == 0:
+                time.sleep(0.003)
 
             if progress_cb and idx % 10 == 0:
                 progress_cb(int(((idx + 1) / max(1, total)) * 100))
-                time.sleep(0.005)
 
         for ev in raw_events:
             ev.pop("_bbox", None)

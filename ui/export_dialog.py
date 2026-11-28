@@ -13,12 +13,13 @@ Features:
 """
 
 import os
+import json
 import subprocess
 import threading
 import traceback
 from pathlib import Path
-from PySide6.QtCore import Qt, QUrl, QTimer, QThread, Signal
-from PySide6.QtGui import QIcon, QFont, QColor, QPalette
+from PySide6.QtCore import Qt, QUrl, QTimer, QThread, Signal, QRect, QPoint, QEvent
+from PySide6.QtGui import QIcon, QFont, QColor, QPalette, QPainter, QPen, QBrush, QPixmap
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
@@ -27,8 +28,108 @@ from PySide6.QtWidgets import (
     QSlider, QSizePolicy, QCheckBox, QScrollArea, QListView
 )
 from core.media_engine import MediaEngine
-from core.lut_presets import LUT_PRESETS
+from core.lut_presets import LUT_PRESETS, get_lut_preset
 from core.system_monitor import get_hardware_profile
+
+
+class ExportPreviewOverlay(QWidget):
+    """
+    Transparent visual overlay drawn on top of QVideoWidget in Export Video Studio:
+    - Real-time running/karaoke Khmer subtitles (អក្សរខ្មែររត់)
+    - Anti-copyright & bottom subtitle blur masks (ម៉ាស់បិទអក្សរចិន)
+    - Channel watermark logo (ឡូហ្គោ)
+    - Active 20+ LUT Color grade tint (LUTS Color)
+    """
+
+    def __init__(self, parent, dialog):
+        super().__init__(parent)
+        self.dialog = dialog
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_NoSystemBackground)
+        self.setStyleSheet("background: transparent;")
+        self.show()
+
+    def paintEvent(self, event):
+        if not getattr(self.dialog, "show_live_overlay", True):
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.TextAntialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+
+        w = self.width()
+        h = self.height()
+        if w <= 10 or h <= 10:
+            return
+
+        edits = self.dialog._get_effective_edits()
+        pos_ms = self.dialog.player.position()
+
+        # 1. 🎨 LUTS Color Grade Preview Tint
+        cur_lut = self.dialog.cb_lut_preset.currentData() if hasattr(self.dialog, "cb_lut_preset") else edits.get("lut_preset", "none")
+        lut_info = get_lut_preset(str(cur_lut or "none"))
+        tint = lut_info.get("preview_tint", (0, 0, 0, 0))
+        if tint and len(tint) == 4 and tint[3] > 0:
+            painter.fillRect(0, 0, w, h, QColor(*tint))
+
+        # 2. 🎭 Anti-Copyright & Bottom Subtitle Masks (ម៉ាស់)
+        masks = self.dialog._get_effective_masks(edits)
+        for m in masks:
+            mx = int(float(m.get("x", 0.08)) * w)
+            my = int(float(m.get("y", 0.72)) * h)
+            mw = int(float(m.get("w", 0.84)) * w)
+            mh = int(float(m.get("h", 0.20)) * h)
+            m_type = m.get("type", "blur")
+            m_color = m.get("color", "#0B0E14")
+            if m_type == "blur" or edits.get("auto_timed_blur"):
+                # Frosted glass dark blur block with cyan border
+                painter.fillRect(mx, my, mw, mh, QColor(11, 14, 20, 235))
+                painter.setPen(QPen(QColor("#00E5FF"), 1.0, Qt.DotLine))
+                painter.drawRect(mx, my, mw, mh)
+            else:
+                c = QColor(m_color)
+                c.setAlpha(245)
+                painter.fillRect(mx, my, mw, mh, c)
+
+        # 3. 🖼️ Logo Watermark (ឡូហ្គោ)
+        logo_path = edits.get("logo_path", "")
+        if logo_path and Path(logo_path).exists():
+            pix = self.dialog._get_cached_logo(logo_path)
+            if pix and not pix.isNull():
+                l_scale = float(edits.get("logo_scale", 0.15))
+                l_opac = float(edits.get("logo_opacity", 0.90))
+                lw = max(24, int(w * l_scale))
+                lh = int(pix.height() * (lw / max(1, pix.width())))
+                lx = int(float(edits.get("logo_x", 0.05)) * w)
+                ly = int(float(edits.get("logo_y", 0.05)) * h)
+                painter.setOpacity(l_opac)
+                painter.drawPixmap(lx, ly, lw, lh, pix)
+                painter.setOpacity(1.0)
+
+        # 4. 📝 Khmer Running Subtitles (អក្សរខ្មែររត់)
+        burn_subs = self.dialog.chk_burn_subs.isChecked() if hasattr(self.dialog, "chk_burn_subs") else True
+        if burn_subs:
+            current_seg = self.dialog._find_segment_at_ms(pos_ms)
+            if current_seg:
+                kh_text = (current_seg.get("kh_text") or "").strip()
+                if kh_text:
+                    font_size = max(13, int(h * 0.038))
+                    font = QFont("Khmer OS Battambang", font_size, QFont.Bold)
+                    painter.setFont(font)
+
+                    # Subtitle bounding rect at bottom center
+                    sub_y = int(h * 0.81)
+                    sub_rect = QRect(int(w * 0.04), sub_y, int(w * 0.92), int(h * 0.15))
+
+                    # 4A. Text shadow / glow outline
+                    painter.setPen(QColor(0, 0, 0, 240))
+                    for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-2, -2), (2, 2), (-2, 2), (2, -2)]:
+                        painter.drawText(sub_rect.translated(dx, dy), Qt.AlignHCenter | Qt.AlignVCenter | Qt.TextWordWrap, kh_text)
+
+                    # 4B. High-contrast primary subtitle color (Gold / Yellow / White)
+                    sub_color = QColor(edits.get("sub_primary_color", "#FFD700"))
+                    painter.setPen(sub_color)
+                    painter.drawText(sub_rect, Qt.AlignHCenter | Qt.AlignVCenter | Qt.TextWordWrap, kh_text)
 
 
 class ExportWorker(QThread):
@@ -72,6 +173,15 @@ class ExportVideoDialog(QDialog):
         self.exported_file_path = ""
         self._worker = None
         self._cancel_event = threading.Event()
+        self.show_live_overlay = True
+        self._cached_logo_pix = None
+        self._cached_logo_path = ""
+        self._cached_segments = []
+        if self.db and self.project_id:
+            try:
+                self._cached_segments = self.db.get_segments(self.project_id) or []
+            except Exception:
+                self._cached_segments = []
 
         self.setWindowTitle("Ai Summarai — Video Export Studio (នាំចេញវីដេអូ)")
         screen = QApplication.primaryScreen()
@@ -306,6 +416,13 @@ class ExportVideoDialog(QDialog):
         meta_box.addStretch()
 
         left_v.addLayout(meta_box)
+
+        self.chk_live_overlay = QCheckBox("👁️ បង្ហាញអក្សររត់ ម៉ាស់ ឡូហ្គោ & LUTs លើ Preview (Live WYSIWYG)")
+        self.chk_live_overlay.setChecked(True)
+        self.chk_live_overlay.setStyleSheet("color: #00E5FF; font-weight: 600; font-size: 11px;")
+        self.chk_live_overlay.toggled.connect(self._toggle_preview_overlay)
+        left_v.addWidget(self.chk_live_overlay)
+
         main_layout.addWidget(left_card, 52)
 
         # =====================================================================
@@ -591,15 +708,86 @@ class ExportVideoDialog(QDialog):
         self.player.setAudioOutput(self.audio_output)
         self.player.setVideoOutput(self.video_widget)
 
+        self.preview_overlay = ExportPreviewOverlay(self.video_widget, self)
+        self.preview_overlay.setGeometry(0, 0, self.video_widget.width(), self.video_widget.height())
+        self.video_widget.installEventFilter(self)
+
         self.player.positionChanged.connect(self._on_player_pos_changed)
         self.player.durationChanged.connect(self._on_player_dur_changed)
         self.player.playbackStateChanged.connect(self._on_player_state_changed)
+
+        # Live visual preview update connections
+        self.cb_lut_preset.currentIndexChanged.connect(self._trigger_overlay_update)
+        self.chk_burn_subs.toggled.connect(self._trigger_overlay_update)
+        self.chk_timed_blur.toggled.connect(self._trigger_overlay_update)
 
         if self.preview_video_path and Path(self.preview_video_path).exists():
             self.player.setSource(QUrl.fromLocalFile(str(Path(self.preview_video_path).resolve())))
             self.audio_output.setVolume(1.0)
             # Auto play preview
             QTimer.singleShot(250, self.player.play)
+
+    def eventFilter(self, watched, event):
+        if watched == self.video_widget and event.type() in (QEvent.Resize, QEvent.Move, QEvent.Show):
+            if hasattr(self, "preview_overlay") and self.preview_overlay:
+                self.preview_overlay.setGeometry(0, 0, self.video_widget.width(), self.video_widget.height())
+                self.preview_overlay.raise_()
+        return super().eventFilter(watched, event)
+
+    def _toggle_preview_overlay(self, checked: bool):
+        self.show_live_overlay = checked
+        self._trigger_overlay_update()
+
+    def _trigger_overlay_update(self, *args):
+        if hasattr(self, "preview_overlay") and self.preview_overlay:
+            self.preview_overlay.update()
+
+    def _get_effective_edits(self) -> dict:
+        edits = {}
+        if self.db and self.project_id:
+            try:
+                edits = self.db.get_project_edits(self.project_id) or {}
+            except Exception:
+                edits = {}
+        if hasattr(self, "cb_lut_preset") and self.cb_lut_preset.currentIndex() >= 0:
+            edits["lut_preset"] = self.cb_lut_preset.currentData()
+        return edits
+
+    def _get_effective_masks(self, edits: dict = None) -> list:
+        if self.db and self.project_id:
+            try:
+                masks = self.db.get_masks(self.project_id) or []
+                if masks:
+                    return masks
+            except Exception:
+                pass
+        ed = edits or self._get_effective_edits()
+        if ed.get("auto_timed_blur") or ed.get("mask_enabled", True) or (hasattr(self, "chk_timed_blur") and self.chk_timed_blur.isChecked()):
+            return [{"x": 0.06, "y": 0.72, "w": 0.88, "h": 0.20, "type": "blur"}]
+        return []
+
+    def _find_segment_at_ms(self, pos_ms: int):
+        if not self._cached_segments:
+            return None
+        for s in self._cached_segments:
+            if s.get("start_ms", 0) <= pos_ms <= s.get("end_ms", 0):
+                return s
+        return None
+
+    def _get_cached_logo(self, path: str):
+        if not path or not Path(path).exists():
+            return None
+        if self._cached_logo_path == path and self._cached_logo_pix:
+            return self._cached_logo_pix
+        try:
+            pix = QPixmap(str(path))
+            if not pix.isNull():
+                self._cached_logo_pix = pix
+                self._cached_logo_path = path
+                return pix
+        except Exception:
+            pass
+        return None
 
     def _toggle_playback(self):
         if self.player.playbackState() == QMediaPlayer.PlayingState:
@@ -625,6 +813,7 @@ class ExportVideoDialog(QDialog):
         cur_s = pos_ms // 1000
         dur_s = dur_ms // 1000
         self.lbl_time.setText(f"{cur_s//60:02d}:{cur_s%60:02d} / {dur_s//60:02d}:{dur_s%60:02d}")
+        self._trigger_overlay_update()
 
     def _on_player_dur_changed(self, dur_ms: int):
         dur_s = (dur_ms or 0) // 1000

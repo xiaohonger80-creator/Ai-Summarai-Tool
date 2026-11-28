@@ -138,10 +138,9 @@ class ZHtoKHTranslator:
         self.is_gemini = "googleapis.com" in self.base_url.lower() or (
             bool(self.api_key) and (self.api_key.startswith("AIza") or self.api_key.startswith("AQ."))
         )
-        # ម៉ូដែល Gemini សកម្ម និងគាំទ្របច្ចុប្បន្ន (ការពារ Model 2.5/2.0/1.5 ដែល Google បានបិទ 404)
-        if self.model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", ""):
-            self.model = "gemini-3.1-flash-lite"
-        self.gemini_models = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash"]
+        if not self.model or self.model in ("", "default"):
+            self.model = "google-free" if (not self.api_key or self.base_url.lower() == "google-free") else "gemini-2.5-flash"
+        self.gemini_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.1-flash-lite"]
 
         self._http = requests.Session()
         self._http.headers.update({"User-Agent": self._USER_AGENT})
@@ -347,13 +346,31 @@ class ZHtoKHTranslator:
         return normalize_dub_khmer_text(t)
 
     @staticmethod
+    def _safe_seg_id(s: Dict, fallback: int = 0) -> int:
+        """Safely extract an integer ID from a segment dictionary without ever raising KeyError."""
+        val = s.get("id")
+        if val is not None:
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                pass
+        val = s.get("start_ms")
+        if val is not None:
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                pass
+        return int(fallback)
+
+    @staticmethod
     def _build_timed_payload(chunk: List[Dict]) -> List[Dict]:
         """Builds LLM input payload enriched with exact spoken duration (`dur_s`) and Khmer char budget for lip-sync."""
         payload = []
-        for s in chunk:
+        for idx, s in enumerate(chunk):
             s_ms = int(s.get("start_ms", 0) or 0)
             e_ms = int(s.get("end_ms", 0) or 0)
-            item = {"id": s["id"], "zh": s.get("zh_text", "")}
+            sid = ZHtoKHTranslator._safe_seg_id(s, fallback=idx + 1)
+            item = {"id": sid, "zh": s.get("zh_text", "")}
             if e_ms > s_ms:
                 dur_s = round(max(0.4, (e_ms - s_ms) / 1000.0), 2)
                 item["dur_s"] = dur_s
@@ -606,17 +623,17 @@ class ZHtoKHTranslator:
                 translated_block = self._free_google_translate_single(joined_zh, retries=2)
                 lines = [ln.strip() for ln in translated_block.split("\n") if ln.strip()]
                 if len(lines) == len(chunk):
-                    for s, kh in zip(chunk, lines):
-                        sid = int(s["id"])
+                    for idx, (s, kh) in enumerate(zip(chunk, lines)):
+                        sid = self._safe_seg_id(s, idx + 1)
                         chunk_map[sid] = self._apply_glossary_replacements(self._polish_conversational_khmer(kh))
                     batch_ok = True
 
             # បើបកប្រែជាកញ្ចប់ខុសចំនួនជួរ ឬវែងពេក -> បកប្រែម្តងមួយជួរៗដោយសុវត្ថិភាព
             if not batch_ok:
-                for s, src_zh in zip(chunk, cleaned_lines):
+                for idx, (s, src_zh) in enumerate(zip(chunk, cleaned_lines)):
                     if stop_event and stop_event.is_set():
                         break
-                    sid = int(s["id"])
+                    sid = self._safe_seg_id(s, idx + 1)
                     kh = self._free_google_translate_single(src_zh, retries=2)
                     if self._is_khmer(kh):
                         chunk_map[sid] = self._apply_glossary_replacements(self._polish_conversational_khmer(kh))
@@ -1081,8 +1098,8 @@ class ZHtoKHTranslator:
                     break
                 gem_res = self._translate_chunk_gemini_direct(chk)
                 chunk_map: Dict[int, str] = {}
-                for s in chk:
-                    sid = int(s["id"])
+                for idx, s in enumerate(chk):
+                    sid = self._safe_seg_id(s, idx + 1)
                     if sid in gem_res and self._is_khmer(gem_res[sid]):
                         chunk_map[sid] = self._apply_glossary_replacements(gem_res[sid])
                     else:
@@ -1151,8 +1168,8 @@ class ZHtoKHTranslator:
                 parsed = {int(k): self._polish_conversational_khmer(str(v).strip()) for k, v in raw_parsed.items() if str(k).isdigit()}
 
                 chunk_map: Dict[int, str] = {}
-                for s in chunk:
-                    sid = int(s["id"])
+                for idx, s in enumerate(chunk):
+                    sid = self._safe_seg_id(s, idx + 1)
                     if sid in parsed and self._is_khmer(parsed[sid]):
                         chunk_map[sid] = self._apply_glossary_replacements(parsed[sid])
                     else:
@@ -1170,7 +1187,7 @@ class ZHtoKHTranslator:
             return results
         except Exception:
             # បើ API Key អស់ Quota ឬ Ollama មិនបើក ធ្លាក់មកប្រើ Free Google Translate សម្រាប់ជួរដែលនៅសល់ដោយស្វ័យប្រវត្តិ
-            remaining = [s for s in segments if int(s["id"]) not in results]
+            remaining = [s for idx, s in enumerate(segments) if self._safe_seg_id(s, idx + 1) not in results]
             if remaining and not (stop_event and stop_event.is_set()):
                 free_res = self._translate_batch_free(
                     remaining,
@@ -1205,11 +1222,15 @@ class ZHtoKHTranslator:
         )
         # ត្រួតពិនិត្យជុំទី ២ សម្រាប់ជួរណាដែលនៅសល់មិនទាន់បកប្រែ (Zero Un-translated Guarantee)
         if not (stop_event and stop_event.is_set()):
-            missed = [s for s in pending if int(s["id"]) not in res or not self._is_khmer(res.get(int(s["id"]), ""))]
-            for s in missed:
+            missed = [
+                s for idx, s in enumerate(pending)
+                if self._safe_seg_id(s, idx + 1) not in res
+                or not self._is_khmer(res.get(self._safe_seg_id(s, idx + 1), ""))
+            ]
+            for idx, s in enumerate(missed):
                 if stop_event and stop_event.is_set():
                     break
-                sid = int(s["id"])
+                sid = self._safe_seg_id(s, idx + 1)
                 kh = self._translate_single_fallback(s.get("zh_text", ""))
                 if self._is_khmer(kh):
                     kh_clean = self._apply_glossary_replacements(kh)

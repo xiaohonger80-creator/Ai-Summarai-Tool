@@ -18,12 +18,13 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        self.api_url_input = QLineEdit(self.db.get_setting("api_url", "http://localhost:11434/v1"))
+        saved_api_url = self.db.get_setting("api_url", "google-free")
+        self.api_url_input = QLineEdit(saved_api_url)
         self.api_key_input = QLineEdit(self.db.get_setting("api_key", ""))
         self.api_key_input.setEchoMode(QLineEdit.Password)
-        saved_model = self.db.get_setting("model", "gemini-3.1-flash-lite")
-        if saved_model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "google-free", ""):
-            saved_model = "gemini-3.1-flash-lite"
+        saved_model = self.db.get_setting("model", "google-free")
+        if not saved_model or saved_model.strip() == "":
+            saved_model = "google-free" if saved_api_url.lower() == "google-free" else "gemini-2.5-flash"
 
         self.model_input = QComboBox()
         self.model_input.setEditable(True)
@@ -69,9 +70,11 @@ class SettingsDialog(QDialog):
         """)
 
         models = [
-            ("✨ gemini-3.1-flash-lite (⭐ Recommended / ថ្មីបំផុត - លឿន & សន្សំ Quota)", "gemini-3.1-flash-lite"),
-            ("⚡ gemini-3.8-flash (High Speed & Accuracy / ឆ្លាតវៃ & គុណភាពខ្ពស់)", "gemini-3.8-flash"),
-            ("🧠 gemini-3.7-flash (Deep Reasoning & Drama / វិភាគស៊ីជម្រៅ)", "gemini-3.7-flash"),
+            ("🌐 google-free (Free Google Translate - No API Key Needed / មិនគិតថ្លៃ)", "google-free"),
+            ("⚡ gemini-2.5-flash (Google Flagship Ultra-Fast / ឆ្លាតវៃ & លឿន)", "gemini-2.5-flash"),
+            ("✨ gemini-2.0-flash (Google Standard Flash / ស្ថិរភាពខ្ពស់)", "gemini-2.0-flash"),
+            ("🚀 gemini-1.5-flash (Google Long Context / សន្សំ Quota)", "gemini-1.5-flash"),
+            ("✨ gemini-3.1-flash-lite (Experimental / ម៉ូដែលសាកល្បង)", "gemini-3.1-flash-lite"),
             ("🦙 qwen2.5:7b (⭐ Recommended Local Ollama for Chinese / ម៉ូដែលចិន-ខ្មែរល្អដាច់គេ)", "qwen2.5:7b"),
             ("🦙 qwen2.5:3b (Fast & Lightweight Local / ស្រាលសម្រាប់ PC ខ្សោយ)", "qwen2.5:3b"),
             ("🦙 qwen2.5:14b (Studio High Accuracy / ភាពសុក្រិតខ្ពស់)", "qwen2.5:14b"),
@@ -80,7 +83,6 @@ class SettingsDialog(QDialog):
             ("🚀 gpt-4o-mini (OpenAI Fast & Cost-Effective)", "gpt-4o-mini"),
             ("👑 gpt-4o (OpenAI Flagship Studio Quality)", "gpt-4o"),
             ("⚡ llama-3.3-70b-versatile (Groq Ultra Fast)", "llama-3.3-70b-versatile"),
-            ("🌐 google-free (Free Google Translate - No API Key Needed)", "google-free"),
         ]
         for label, mid in models:
             self.model_input.addItem(label, mid)
@@ -133,7 +135,7 @@ class SettingsDialog(QDialog):
         mid = self.model_input.itemData(idx) if idx >= 0 else None
         if not mid:
             raw = self.model_input.currentText().strip()
-            mid = raw.split()[0].strip() if raw else "gemini-3.1-flash-lite"
+            mid = raw.split()[0].strip() if raw else ("google-free" if self.api_url_input.text().strip().lower() == "google-free" else "gemini-2.5-flash")
         self.db.set_setting("model", str(mid))
         self.db.set_setting("default_voice", self.voice_combo.currentText())
         self.db.set_setting("ocr_crop_ratio", f"{self.crop_spin.value():.2f}")

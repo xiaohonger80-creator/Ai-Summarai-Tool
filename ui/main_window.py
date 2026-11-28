@@ -93,7 +93,8 @@ class SettingsDialog(QDialog):
         ])
         self.preset_combo.currentIndexChanged.connect(self._apply_preset)
 
-        self.api_url = QLineEdit(self.db.get_setting("api_url", "https://generativelanguage.googleapis.com/v1beta/openai/"))
+        saved_api_url = self.db.get_setting("api_url", "google-free")
+        self.api_url = QLineEdit(saved_api_url)
 
         api_key_widget = QWidget()
         api_key_container = QVBoxLayout(api_key_widget)
@@ -132,15 +133,17 @@ class SettingsDialog(QDialog):
         api_key_container.addLayout(pool_bar)
         self._update_key_pool_badge()
 
-        saved_model = self.db.get_setting("model", "gemini-3.1-flash-lite")
-        if saved_model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "google-free", ""):
-            saved_model = "gemini-3.1-flash-lite"
+        saved_model = self.db.get_setting("model", "google-free")
+        if not saved_model or saved_model.strip() == "":
+            saved_model = "google-free" if (saved_api_url.lower() == "google-free" or not saved_keys_list) else "gemini-2.5-flash"
 
         # AI Models Dropdown: Latest & Recommended Models (Gemini, Local Ollama, OpenAI, Groq)
         RECOMMENDED_MODELS = [
-            ("✨ gemini-3.1-flash-lite (⭐ Recommended / ថ្មីបំផុត - លឿន & សន្សំ Quota)", "gemini-3.1-flash-lite"),
-            ("⚡ gemini-3.8-flash (High Speed & Accuracy / ឆ្លាតវៃ & គុណភាពខ្ពស់)", "gemini-3.8-flash"),
-            ("🧠 gemini-3.7-flash (Deep Reasoning & Drama / វិភាគស៊ីជម្រៅ)", "gemini-3.7-flash"),
+            ("🌐 google-free (Free Google Translate - No API Key Needed / មិនគិតថ្លៃ)", "google-free"),
+            ("⚡ gemini-2.5-flash (Google Flagship Ultra-Fast / ឆ្លាតវៃ & លឿន)", "gemini-2.5-flash"),
+            ("✨ gemini-2.0-flash (Google Standard Flash / ស្ថិរភាពខ្ពស់)", "gemini-2.0-flash"),
+            ("🚀 gemini-1.5-flash (Google Long Context / សន្សំ Quota)", "gemini-1.5-flash"),
+            ("✨ gemini-3.1-flash-lite (Experimental / ម៉ូដែលសាកល្បង)", "gemini-3.1-flash-lite"),
             ("🦙 qwen2.5:7b (⭐ Recommended Local Ollama for Chinese / ម៉ូដែលចិន-ខ្មែរល្អដាច់គេ)", "qwen2.5:7b"),
             ("🦙 qwen2.5:3b (Fast & Lightweight Local / ស្រាលសម្រាប់ PC ខ្សោយ)", "qwen2.5:3b"),
             ("🦙 qwen2.5:14b (Studio High Accuracy / ភាពសុក្រិតខ្ពស់)", "qwen2.5:14b"),
@@ -149,7 +152,6 @@ class SettingsDialog(QDialog):
             ("🚀 gpt-4o-mini (OpenAI Fast & Cost-Effective)", "gpt-4o-mini"),
             ("👑 gpt-4o (OpenAI Flagship Studio Quality)", "gpt-4o"),
             ("⚡ llama-3.3-70b-versatile (Groq Ultra Fast)", "llama-3.3-70b-versatile"),
-            ("🌐 google-free (Free Google Translate - No API Key Needed)", "google-free"),
         ]
 
         self.model_name = QComboBox()
@@ -208,6 +210,20 @@ class SettingsDialog(QDialog):
         else:
             self.model_name.insertItem(0, f"⚙️ {saved_model} (Custom / Saved)", saved_model)
             self.model_name.setCurrentIndex(0)
+
+        # Auto-detect preset index
+        self.preset_combo.blockSignals(True)
+        if saved_api_url.lower() == "google-free" or saved_model.lower() == "google-free":
+            self.preset_combo.setCurrentIndex(1)
+        elif "localhost" in saved_api_url or "127.0.0.1" in saved_api_url:
+            self.preset_combo.setCurrentIndex(2)
+        elif "api.openai.com" in saved_api_url:
+            self.preset_combo.setCurrentIndex(3)
+        elif "googleapis.com" in saved_api_url:
+            self.preset_combo.setCurrentIndex(4)
+        else:
+            self.preset_combo.setCurrentIndex(0)
+        self.preset_combo.blockSignals(False)
 
         self.asr_combo = QComboBox()
         self.asr_combo.addItems(["Local Whisper (int8 CPU - Low RAM)", "Cloud Whisper API"])
@@ -285,7 +301,7 @@ class SettingsDialog(QDialog):
             token = re.split(r"[\s\(\[\{]+", raw)[0].strip()
             token = re.sub(r"^[^\w\-:\.]+", "", token)
             return token or raw
-        return "gemini-3.1-flash-lite"
+        return "google-free" if self.api_url.text().strip().lower() == "google-free" else "gemini-2.5-flash"
 
     def _set_model_by_id(self, model_id: str):
         for i in range(self.model_name.count()):
@@ -308,7 +324,7 @@ class SettingsDialog(QDialog):
             self._set_model_by_id("gpt-4o-mini")
         elif idx == 4:
             self.api_url.setText("https://generativelanguage.googleapis.com/v1beta/openai/")
-            self._set_model_by_id("gemini-3.1-flash-lite")
+            self._set_model_by_id("gemini-2.5-flash")
 
     def _save(self):
         try:
@@ -2756,45 +2772,27 @@ class MainWindow(QMainWindow):
             return s.get("status") != "Voiced" or not w or not Path(w).exists() or Path(w).stat().st_size <= 512
 
         unvoiced_count = sum(1 for s in segments if _is_unvoiced(s))
-        if not force_all and target_segment_ids is None:
-            if unvoiced_count == 0:
-                ret = QMessageBox.question(
-                    self,
-                    "Ai Summarai",
-                    "គ្រប់ជួរទាំងអស់មានឯកសារសំឡេងខ្មែររួចរាល់ហើយ!\nតើអ្នកចង់បង្កើតសំឡេងឡើងវិញទាំងអស់ (Redub All Lines) ឬទេ?",
-                    QMessageBox.Yes | QMessageBox.No,
-                )
-                if ret == QMessageBox.Yes:
-                    force_all = True
-                else:
-                    return
-            elif unvoiced_count < len(segments):
-                msg = QMessageBox(self)
-                msg.setWindowTitle("Ai Summarai — បញ្ចូលសំឡេងខ្មែរ (Generate Voice)")
-                msg.setText(
-                    f"គម្រោងនេះមាន {len(segments)} ជួរ (នៅខ្វះសំឡេង {unvoiced_count} ជួរ)។\n"
-                    "តើអ្នកចង់បង្កើតសំឡេងតែជួរដែលខ្វះ ឬបង្កើតឡើងវិញទាំងអស់?"
-                    if self.lang == "kh" else
-                    f"This project has {len(segments)} lines ({unvoiced_count} missing voice).\n"
-                    "Do you want to Dub Missing Only, or Redub All Lines?"
-                )
-                btn_missing = msg.addButton(
-                    f"🎙️ បញ្ចូលតែជួរដែលខ្វះ ({unvoiced_count})" if self.lang == "kh" else f"🎙️ Dub Missing ({unvoiced_count})",
-                    QMessageBox.ActionRole
-                )
-                btn_all = msg.addButton(
-                    f"🔄 បញ្ចូលឡើងវិញទាំងអស់ ({len(segments)})" if self.lang == "kh" else f"🔄 Redub All ({len(segments)})",
-                    QMessageBox.ActionRole
-                )
-                btn_cancel = msg.addButton("❌ បោះបង់" if self.lang == "kh" else "❌ Cancel", QMessageBox.RejectRole)
-                msg.exec()
-                clicked = msg.clickedButton()
-                if clicked == btn_cancel or not clicked:
-                    return
-                force_all = (clicked == btn_all)
+        if target_segment_ids is None:
+            from ui.dub_voice_dialog import DubVoiceSelectionDialog
+            dlg = DubVoiceSelectionDialog(
+                self.db,
+                unvoiced_count=unvoiced_count,
+                total_count=len(segments),
+                lang=self.lang,
+                parent=self,
+            )
+            if dlg.exec() != QDialog.Accepted:
+                return
+            voice_type, profile_key, voice_label, force_all = dlg.get_selection()
+            if voice_type == "ai":
+                self.db.set_setting("kh_voice_label", voice_label)
+                default_voice = DEFAULT_VOICES.get(voice_label, "km-KH-SreymomNeural")
+            else:
+                default_voice = profile_key
+        else:
+            voice_label = self.db.get_setting("kh_voice_label", "Female (Sreymom)")
+            default_voice = DEFAULT_VOICES.get(voice_label, "km-KH-SreymomNeural")
 
-        voice_label = self.db.get_setting("kh_voice_label", "Female (Sreymom)")
-        default_voice = DEFAULT_VOICES.get(voice_label, "km-KH-SreymomNeural")
         bgm_vol = round(self.bgm_slider.value() / 100.0, 2)
 
         def task(emit):
@@ -3062,12 +3060,22 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Ai Summarai", "សូមបើកវីដេអូជាមុនសិន!")
             return
 
+        existing_segs = self.db.get_segments(self.project_id)
+        has_untranslated = any(
+            (s.get("zh_text") or "").strip() and not re.search(r"[\u1780-\u17ff]", s.get("kh_text") or "")
+            for s in existing_segs
+        )
+        has_unvoiced = any(
+            s.get("status") != "Voiced" and (s.get("kh_text") or "").strip()
+            for s in existing_segs
+        )
+
         if target_gap is not None:
             gaps = [target_gap]
         else:
             gaps = self._detect_timeline_gaps(min_gap_ms=1800)
 
-        if not gaps:
+        if not gaps and not has_untranslated and not has_unvoiced:
             QMessageBox.information(
                 self,
                 "Ai Summarai",
@@ -3099,6 +3107,24 @@ class MainWindow(QMainWindow):
             total_gaps = len(gaps)
             total_added_segs = 0
 
+            # ក. បកប្រែបំពេញជួរដែលមានស្រាប់តែមិនទាន់បកប្រែ (Fill Untranslated Existing Lines)
+            untrans = [
+                s for s in self.db.get_segments(self.project_id)
+                if (s.get("zh_text") or "").strip() and not re.search(r"[\u1780-\u17ff]", s.get("kh_text") or "")
+            ]
+            if untrans:
+                emit(5, f"កំពុងបកប្រែបំពេញ {len(untrans)} ជួរដែលមិនទាន់បកប្រែ...")
+                from core.translator import strip_chinese_from_khmer
+                untrans_res = translator.translate_segments(untrans, stop_event=self._cancel_event)
+                for s in untrans:
+                    sid = s["id"]
+                    raw_k = untrans_res.get(sid, "") or untrans_res.get(s.get("start_ms"), "")
+                    clean_k = strip_chinese_from_khmer(raw_k) if raw_k else ""
+                    if clean_k and re.search(r"[\u1780-\u17ff]", clean_k):
+                        self.db.update_segment(sid, kh_text=clean_k, status="Ready")
+                        total_added_segs += 1
+
+            # ខ. ស្កេន និងកាត់សំឡេងចន្លោះទំនេរលើ Timeline (Scan Audio Gaps)
             for g_idx, (g_start, g_end) in enumerate(gaps):
                 if self._cancel_event.is_set():
                     return "⏹ បានផ្អាកការបំពេញចន្លោះ!"
@@ -3107,7 +3133,7 @@ class MainWindow(QMainWindow):
                 if dur_ms < 1000:
                     continue
 
-                emit(int((g_idx / total_gaps) * 75), f"កំពុងស្កេនចន្លោះ {g_idx+1}/{total_gaps} ({g_start//1000}s - {g_end//1000}s)...")
+                emit(int((g_idx / max(1, total_gaps)) * 75) + 10, f"កំពុងស្កេនចន្លោះ {g_idx+1}/{total_gaps} ({g_start//1000}s - {g_end//1000}s)...")
 
                 gap_wav = work_dir / f"_gap_{g_start}_{g_end}.wav"
                 cmd = [
@@ -3143,11 +3169,13 @@ class MainWindow(QMainWindow):
                     continue
 
                 adjusted_items = []
-                for it in raw_items:
+                for it_idx, it in enumerate(raw_items):
                     abs_s = g_start + it["start_ms"]
                     abs_e = min(g_end, g_start + it["end_ms"])
                     if abs_e - abs_s >= 400:
+                        seg_id = abs_s
                         adjusted_items.append({
+                            "id": seg_id,
                             "start_ms": abs_s,
                             "end_ms": abs_e,
                             "zh_text": it["zh_text"],
@@ -3158,24 +3186,33 @@ class MainWindow(QMainWindow):
                 if not adjusted_items:
                     continue
 
-                emit(int((g_idx / total_gaps) * 75) + 5, f"កំពុងបកប្រែ {len(adjusted_items)} ជួរក្នុងចន្លោះនេះ...")
+                emit(int((g_idx / max(1, total_gaps)) * 75) + 15, f"កំពុងបកប្រែ {len(adjusted_items)} ជួរក្នុងចន្លោះនេះ...")
                 from core.translator import strip_chinese_from_khmer
                 translated_map = translator.translate_segments(adjusted_items, stop_event=self._cancel_event)
                 for it in adjusted_items:
-                    raw_k = translated_map.get(it["start_ms"], "") or it.get("kh_text", "")
+                    raw_k = (
+                        translated_map.get(it["id"], "")
+                        or translated_map.get(it["start_ms"], "")
+                        or it.get("kh_text", "")
+                    )
                     it["kh_text"] = strip_chinese_from_khmer(raw_k)
 
                 self.db.append_segments(self.project_id, adjusted_items)
                 self.db.fix_all_overlaps(self.project_id)
                 total_added_segs += len(adjusted_items)
 
-            if total_added_segs > 0:
-                emit(85, f"កំពុងបង្កើតសំឡេងខ្មែរសម្រាប់ {total_added_segs} ជួរដែលបានបំពេញថ្មី...")
-                new_segs = self.db.get_segments(self.project_id)
+            # គ. បង្កើតសំឡេងខ្មែរ (TTS) សម្រាប់គ្រប់ជួរដែលនៅខ្វះសំឡេង (Unvoiced Segments)
+            latest_segs = self.db.get_segments(self.project_id)
+            unvoiced_segs = [
+                s for s in latest_segs
+                if s.get("status") != "Voiced" and (s.get("kh_text") or "").strip()
+            ]
+            if unvoiced_segs or total_added_segs > 0:
+                emit(85, f"កំពុងបង្កើតសំឡេងខ្មែរសម្រាប់ {len(unvoiced_segs)} ជួរដែលនៅខ្វះ...")
                 from core.translator import strip_chinese_from_khmer
-                for s in new_segs:
+                for s in unvoiced_segs:
                     clean_kh = strip_chinese_from_khmer(s.get("kh_text") or "")
-                    if s.get("status") != "Voiced" and clean_kh:
+                    if clean_kh:
                         cpath = str(clip_dir / f"seg_{s['id']}.wav")
                         d_ms = max(400, s["end_ms"] - s["start_ms"] + 300)
                         voice = s.get("voice_override") or default_voice
@@ -3200,7 +3237,7 @@ class MainWindow(QMainWindow):
                 except Exception as pe:
                     print(f"[Preview Error] {pe}")
 
-                return f"ជោគជ័យ! បានស្កេន បកប្រែ និងបញ្ចូលសំឡេង {total_added_segs} ជួរថ្មីក្នុងចន្លោះ Timeline!"
+                return f"ជោគជ័យ! បានស្កេន បកប្រែ និងបញ្ចូលសំឡេង {total_added_segs} ជួរក្នុងចន្លោះ Timeline!"
             else:
                 return "ពុំឃើញមានពាក្យនិយាយក្នុងចន្លោះដែលបានស្កេនទេ (អាចជាភ្លេង ឬសំឡេងស្ងាត់)។ អ្នកអាច Right-Click លើចន្លោះនោះដើម្បីបន្ថែមជួរនិយាយដោយដៃបាន!"
 

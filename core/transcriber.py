@@ -389,7 +389,7 @@ class SpeechTranscriber:
                 from google.genai import types
                 client = genai.Client(api_key=curr_key)
                 uploaded = client.files.upload(file=clean_wav)
-                for m_name in ("gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"):
+                for m_name in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.1-flash-lite"):
                     try:
                         resp = client.models.generate_content(
                             model=m_name,
