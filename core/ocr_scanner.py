@@ -9,17 +9,20 @@ import numpy as np
 from core.sentence_splitter import split_all_segments, clean_chinese_text, is_junk_text
 
 # កម្រិត Threads សម្រាប់ ONNX / OpenMP / BLAS ដើម្បីកុំឲ្យជាន់ឈ្លី CPU 100% លើម៉ាស៊ីន Spech តូច
-os.environ.setdefault("OMP_NUM_THREADS", "2")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "2")
-os.environ.setdefault("MKL_NUM_THREADS", "2")
-os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "2")
-os.environ.setdefault("NUMEXPR_NUM_THREADS", "2")
-os.environ.setdefault("ORT_NUM_THREADS", "2")
-os.environ.setdefault("ONNXRUNTIME_NUM_THREADS", "2")
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+os.environ["ORT_NUM_THREADS"] = "2"
+os.environ["ONNXRUNTIME_NUM_THREADS"] = "2"
 
 try:
     import cv2
     _HAVE_CV2 = True
+    # កំណត់ OpenCV Threads ត្រឹម 2 (ការពារកុំឲ្យប្រើ 20 threads pinning CPU 100%)
+    cv2.setNumThreads(2)
+    cv2.ocl.setUseOpenCL(False)
 except ImportError:
     _HAVE_CV2 = False
 
@@ -33,15 +36,17 @@ except ImportError:
 
 class SubtitleOCRScanner:
     def __init__(self):
-        # កំណត់ Parameter ច្បាស់លាស់បំផុតសម្រាប់ចាប់អក្សរចិន (ទាំងអក្សរតូច ស្តើង ភ្លឺ ឬមានស្រមោល)
+        # កំណត់ Parameter ច្បាស់លាស់បំផុតសម្រាប់ចាប់អក្សរចិន និងកំណត់ Threads = 2 ការពារ CPU 100%
+        ocr_params = {
+            "Det.box_thresh": 0.22,
+            "Det.unclip_ratio": 2.2,
+            "Global.text_score": 0.32,
+            "EngineConfig.onnxruntime.intra_op_num_threads": 2,
+            "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+            "EngineConfig.openvino.inference_num_threads": 2,
+        }
         if _IS_RAPIDOCR_V3:
-            self.ocr = RapidOCR(
-                params={
-                    "Det.box_thresh": 0.22,
-                    "Det.unclip_ratio": 2.2,
-                    "Global.text_score": 0.32,
-                }
-            )
+            self.ocr = RapidOCR(params=ocr_params)
         else:
             self.ocr = RapidOCR(box_thresh=0.22, unclip_ratio=2.2)
 
@@ -247,13 +252,14 @@ class SubtitleOCRScanner:
 
                 if prev_thumb is not None:
                     diff = float(np.mean(np.abs(thumb_f - prev_thumb)))
-                    # បើទិដ្ឋភាពអក្សរមិនផ្លាស់ប្តូរ (Diff < 2.8) ពន្យារម៉ោងអក្សរមុន ដោយមិនបាច់រត់ Neural Network នាំឱ្យយឺត
-                    if diff < 2.8:
+                    # បើទិដ្ឋភាពអក្សរមិនផ្លាស់ប្តូរ (Diff < 3.2) ពន្យារម៉ោងអក្សរមុន ដោយមិនបាច់រត់ Neural Network នាំឱ្យយឺត និងឡើងកម្តៅ CPU
+                    if diff < 3.2:
                         if raw_events:
                             last = raw_events[-1]
                             if (ts_ms + step_ms - last["start_ms"]) <= 4200:
                                 last["end_ms"] = ts_ms + step_ms
                         del img, gray, thumb, thumb_f
+                        time.sleep(0.002)
                         if progress_cb and idx % 10 == 0:
                             progress_cb(int(((idx + 1) / max(1, total)) * 100))
                         continue
@@ -269,6 +275,9 @@ class SubtitleOCRScanner:
             )
             if img is not None:
                 del img, inp
+
+            # Cooperative Sleep ក្រោយ Inference (12ms) ដើម្បីទុក CPU ឲ្យ Windows & UI ដើររលូន កុំឲ្យឡើង 95%-100%
+            time.sleep(0.012)
 
             if text and not is_junk_text(text):
                 if raw_events:

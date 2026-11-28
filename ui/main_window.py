@@ -4,7 +4,7 @@ import threading
 import time
 from pathlib import Path
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QEvent, QTimer, QPoint
-from PySide6.QtGui import QIcon, QPixmap, QFont, QColor, QBrush, QCursor
+from PySide6.QtGui import QIcon, QPixmap, QFont, QColor, QBrush, QCursor, QPainter
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -28,6 +28,8 @@ from ui.multi_clip_dialog import MultiClipComposerDialog
 DEFAULT_VOICES = {
     "Female (Sreymom)": "female",
     "Male (Piseth)": "male",
+    "Somleng Khmer Female (Telecom)": "somleng_female",
+    "Somleng Khmer Male (Telecom)": "somleng_male",
 }
 from ui.glossary_dialog import GlossaryDialog
 from ui.find_replace_dialog import FindReplaceDialog
@@ -64,7 +66,9 @@ class PipelineWorker(QThread):
         except InterruptedError as ie:
             self.stopped.emit(str(ie))
         except Exception as e:
-            self.failed.emit(str(e))
+            import traceback
+            traceback.print_exc()
+            self.failed.emit(f"កំហុសដំណើរការ (Process Error): {e}")
 
 
 class SettingsDialog(QDialog):
@@ -486,6 +490,11 @@ class MainWindow(QMainWindow):
         self.resize(1180, 700)
         self.setAcceptDrops(True)
 
+        self._bg_pixmap = None
+        bg_candidate = Path("assets/app_bg_blurred.jpg")
+        if bg_candidate.exists():
+            self._bg_pixmap = QPixmap(str(bg_candidate))
+
         self._build_ui()
         try:
             apply_app_palette(QApplication.instance(), self.db.get_setting("ui_theme", "capcut"))
@@ -563,6 +572,16 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         super().closeEvent(event)
+
+    def paintEvent(self, event):
+        if hasattr(self, "_bg_pixmap") and self._bg_pixmap and not self._bg_pixmap.isNull():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+            painter.drawPixmap(self.rect(), self._bg_pixmap)
+            # Luxury dark translucent tint (#0B0D10DE) so text and timeline maintain 100% clarity
+            painter.fillRect(self.rect(), QColor(11, 13, 16, 210))
+            painter.end()
+        super().paintEvent(event)
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.KeyPress and self.isActiveWindow():
@@ -2663,9 +2682,7 @@ class MainWindow(QMainWindow):
             return
         api_url = self.db.get_setting("api_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         api_key = self.db.get_setting("api_key", "")
-        model = self.db.get_setting("model", "gemini-3.1-flash-lite")
-        if model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", ""):
-            model = "gemini-3.1-flash-lite"
+        model = self.db.get_setting("model", "gemini-2.5-flash")
 
         # ពិនិត្យរកមើលប្រយោគដែលមានអក្សរខ្មែរពិតប្រាកដ (Unicode \u1780-\u17FF)
         def is_valid_khmer(t: str) -> bool:
@@ -3073,13 +3090,13 @@ class MainWindow(QMainWindow):
         if target_gap is not None:
             gaps = [target_gap]
         else:
-            gaps = self._detect_timeline_gaps(min_gap_ms=1800)
+            gaps = self._detect_timeline_gaps(min_gap_ms=800)
 
         if not gaps and not has_untranslated and not has_unvoiced:
             QMessageBox.information(
                 self,
                 "Ai Summarai",
-                "គ្មានចន្លោះទំនេរណាលើសពី 1.8 វិនាទីលើ Timeline ទេ!\n(គ្រប់វិនាទីទាំងអស់សុទ្ធតែមាន Subtitle/Dub រួចរាល់)",
+                "គ្មានចន្លោះទំនេរណាលើសពី 0.8 វិនាទីលើ Timeline ទេ!\n(គ្រប់វិនាទីទាំងអស់សុទ្ធតែមាន Subtitle/Dub រួចរាល់)",
             )
             return
 
@@ -3087,7 +3104,7 @@ class MainWindow(QMainWindow):
         work_dir.mkdir(parents=True, exist_ok=True)
         api_url = self.db.get_setting("api_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         api_key = self.db.get_setting("api_key", "")
-        model = self.db.get_setting("model", "gemini-3.1-flash-lite")
+        model = self.db.get_setting("model", "gemini-2.5-flash")
         voice_label = self.db.get_setting("kh_voice_label", "Female (Sreymom)")
         default_voice = DEFAULT_VOICES.get(voice_label, "km-KH-SreymomNeural")
 
@@ -3117,7 +3134,9 @@ class MainWindow(QMainWindow):
                 from core.translator import strip_chinese_from_khmer
                 untrans_res = translator.translate_segments(untrans, stop_event=self._cancel_event)
                 for s in untrans:
-                    sid = s["id"]
+                    sid = s.get("id") or s.get("start_ms")
+                    if not sid:
+                        continue
                     raw_k = untrans_res.get(sid, "") or untrans_res.get(s.get("start_ms"), "")
                     clean_k = strip_chinese_from_khmer(raw_k) if raw_k else ""
                     if clean_k and re.search(r"[\u1780-\u17ff]", clean_k):
@@ -3130,7 +3149,7 @@ class MainWindow(QMainWindow):
                     return "⏹ បានផ្អាកការបំពេញចន្លោះ!"
 
                 dur_ms = g_end - g_start
-                if dur_ms < 1000:
+                if dur_ms < 600:
                     continue
 
                 emit(int((g_idx / max(1, total_gaps)) * 75) + 10, f"កំពុងស្កេនចន្លោះ {g_idx+1}/{total_gaps} ({g_start//1000}s - {g_end//1000}s)...")
@@ -3170,15 +3189,15 @@ class MainWindow(QMainWindow):
 
                 adjusted_items = []
                 for it_idx, it in enumerate(raw_items):
-                    abs_s = g_start + it["start_ms"]
-                    abs_e = min(g_end, g_start + it["end_ms"])
-                    if abs_e - abs_s >= 400:
+                    abs_s = g_start + it.get("start_ms", 0)
+                    abs_e = min(g_end, g_start + it.get("end_ms", 0))
+                    if abs_e - abs_s >= 350:
                         seg_id = abs_s
                         adjusted_items.append({
                             "id": seg_id,
                             "start_ms": abs_s,
                             "end_ms": abs_e,
-                            "zh_text": it["zh_text"],
+                            "zh_text": it.get("zh_text", ""),
                             "voice_override": it.get("voice_override", ""),
                             "status": "Ready",
                         })
@@ -3190,9 +3209,10 @@ class MainWindow(QMainWindow):
                 from core.translator import strip_chinese_from_khmer
                 translated_map = translator.translate_segments(adjusted_items, stop_event=self._cancel_event)
                 for it in adjusted_items:
+                    sid = it.get("id") or it.get("start_ms")
                     raw_k = (
-                        translated_map.get(it["id"], "")
-                        or translated_map.get(it["start_ms"], "")
+                        translated_map.get(sid, "")
+                        or translated_map.get(it.get("start_ms"), "")
                         or it.get("kh_text", "")
                     )
                     it["kh_text"] = strip_chinese_from_khmer(raw_k)
@@ -3211,14 +3231,17 @@ class MainWindow(QMainWindow):
                 emit(85, f"កំពុងបង្កើតសំឡេងខ្មែរសម្រាប់ {len(unvoiced_segs)} ជួរដែលនៅខ្វះ...")
                 from core.translator import strip_chinese_from_khmer
                 for s in unvoiced_segs:
+                    sid = s.get("id") or s.get("start_ms")
+                    if not sid:
+                        continue
                     clean_kh = strip_chinese_from_khmer(s.get("kh_text") or "")
                     if clean_kh:
-                        cpath = str(clip_dir / f"seg_{s['id']}.wav")
-                        d_ms = max(400, s["end_ms"] - s["start_ms"] + 300)
+                        cpath = str(clip_dir / f"seg_{sid}.wav")
+                        d_ms = max(400, s.get("end_ms", 0) - s.get("start_ms", 0) + 300)
                         voice = s.get("voice_override") or default_voice
                         try:
                             tts.generate_clip(clean_kh, voice, d_ms, cpath, db=self.db, speed_mult=getattr(self, "tts_speed_mult", 1.0))
-                            self.db.update_segment(s["id"], kh_text=clean_kh, tts_audio_path=cpath, status="Voiced")
+                            self.db.update_segment(sid, kh_text=clean_kh, tts_audio_path=cpath, status="Voiced")
                         except Exception as e:
                             print(f"[TTS Error in Gap] {e}")
 
@@ -3724,9 +3747,7 @@ class MainWindow(QMainWindow):
         asr_mode = int(self.db.get_setting("asr_mode", "0"))
         api_url = self.db.get_setting("api_url", "https://generativelanguage.googleapis.com/v1beta/openai/")
         api_key = self.db.get_setting("api_key", "")
-        model = self.db.get_setting("model", "gemini-3.1-flash-lite")
-        if model in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", ""):
-            model = "gemini-3.1-flash-lite"
+        model = self.db.get_setting("model", "gemini-2.5-flash")
         dub_style = self.combo_trans_style.currentData() if hasattr(self, "combo_trans_style") else "literal"
         crop_y = int(self.db.get_setting("ocr_y_pct", "72")) / 100.0
         crop_h = int(self.db.get_setting("ocr_h_pct", "28")) / 100.0

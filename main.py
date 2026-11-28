@@ -4,6 +4,23 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# កម្រិត Threads សម្រាប់ ONNX / OpenMP / BLAS និង OpenCV ការពារ CPU 95%-100% លើម៉ាស៊ីន Spech ទាប
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "2"
+os.environ["NUMEXPR_NUM_THREADS"] = "2"
+os.environ["ORT_NUM_THREADS"] = "2"
+os.environ["ONNXRUNTIME_NUM_THREADS"] = "2"
+
+try:
+    import cv2
+    cv2.setNumThreads(2)
+    cv2.ocl.setUseOpenCL(False)
+except Exception:
+    pass
+
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 

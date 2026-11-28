@@ -32,8 +32,8 @@ class SpeechTranscriber:
         if model_size not in cls._model_cache:
             from faster_whisper import WhisperModel
             cpu_cores = os.cpu_count() or 4
-            # បែងចែក Threads សមរម្យ (ទុកយ៉ាងតិច 1 Core ឲ្យ Windows និង UI ដើររលូន មិនគាំង មិន freeze)
-            threads = max(1, min(3, (cpu_cores - 1) if cpu_cores > 2 else cpu_cores))
+            # បែងចែក Threads សមរម្យ (ត្រឹមតែ 2 Cores ការពារកុំឲ្យ CPU ឡើង 95%-100% លើកុំព្យូទ័រ Spech ទាប)
+            threads = max(1, min(2, cpu_cores // 2 if cpu_cores >= 4 else 1))
             try:
                 import torch
                 has_cuda = torch.cuda.is_available()

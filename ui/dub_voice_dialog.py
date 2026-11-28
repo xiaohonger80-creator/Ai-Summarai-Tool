@@ -166,6 +166,8 @@ class DubVoiceSelectionDialog(QDialog):
         self.combo_ai = QComboBox()
         self.combo_ai.addItem("👩 នារីផ្អែមល្ហែម — Female (Sreymom)", "female")
         self.combo_ai.addItem("👨 បុរសរឹងមាំ — Male (Piseth)", "male")
+        self.combo_ai.addItem("📡 Somleng នារីទូរគមនាគមន៍ — Somleng Telecom Female", "somleng_female")
+        self.combo_ai.addItem("📡 Somleng បុរសទូរគមនាគមន៍ — Somleng Telecom Male", "somleng_male")
 
         saved_voice = self.db.get_setting("kh_voice_label", "Female (Sreymom)")
         if "Piseth" in saved_voice or "Male" in saved_voice:
@@ -318,7 +320,13 @@ class DubVoiceSelectionDialog(QDialog):
         else:
             voice_type = "ai"
             profile_key = str(self.combo_ai.currentData() or "female")
-            voice_label = "Female (Sreymom)" if profile_key == "female" else "Male (Piseth)"
+            labels_map = {
+                "female": "Female (Sreymom)",
+                "male": "Male (Piseth)",
+                "somleng_female": "Somleng Khmer Female (Telecom)",
+                "somleng_male": "Somleng Khmer Male (Telecom)",
+            }
+            voice_label = labels_map.get(profile_key, "Female (Sreymom)")
 
         force_all = self.rb_all.isChecked() if self.rb_all is not None else False
         return voice_type, profile_key, voice_label, force_all

@@ -115,7 +115,19 @@ def build_stylesheet(theme_key: str = "obsidian") -> str:
     /* =========================================================================
        1. GLOBAL APPLICATION CANVAS & TYPOGRAPHY
        ========================================================================= */
-    QMainWindow, QDialog {{
+    QMainWindow {{
+        background-color: transparent;
+        color: {t['text_primary']};
+        font-family: "Inter", "Kantumruy Pro", "Noto Sans Khmer", "Khmer OS Battambang", "Segoe UI", sans-serif;
+        font-size: 12.5px;
+        font-weight: 500;
+    }}
+
+    QWidget#centralWidget {{
+        background-color: transparent;
+    }}
+
+    QDialog {{
         background-color: {t['bg_canvas']};
         color: {t['text_primary']};
         font-family: "Inter", "Kantumruy Pro", "Noto Sans Khmer", "Khmer OS Battambang", "Segoe UI", sans-serif;

@@ -10,6 +10,7 @@ import requests
 
 from core.voice_clone_engine import VoiceCloneEngine
 from core.translator import normalize_dub_khmer_text
+from core.somleng_engine import SomlengKhmerNormalizer, SomlengVoiceEngine
 
 CREATE_NO_WINDOW = 0x08000000 if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
 
@@ -49,11 +50,31 @@ class KhmerTTSEngine:
             "rate": "+4%",
             "fx": "highpass=f=360,lowpass=f=3200,acompressor=threshold=-18dB:ratio=4:attack=10:release=100",
         },
+        "somleng_female": {
+            "label_en": "Somleng Khmer Female (Telecom)",
+            "label_kh": "Somleng នារី (Khmer Telecom)",
+            "voice": "km-KH-SreymomNeural",
+            "pitch": "+1Hz",
+            "rate": "+2%",
+            "fx": "highpass=f=120,lowpass=f=7500,acompressor=threshold=-16dB:ratio=3.5:attack=15:release=120",
+            "is_somleng": True,
+        },
+        "somleng_male": {
+            "label_en": "Somleng Khmer Male (Telecom)",
+            "label_kh": "Somleng បុរស (Khmer Telecom)",
+            "voice": "km-KH-PisethNeural",
+            "pitch": "-1Hz",
+            "rate": "+1%",
+            "fx": "highpass=f=100,lowpass=f=7200,acompressor=threshold=-16dB:ratio=3.5:attack=15:release=120",
+            "is_somleng": True,
+        },
     }
 
     VOICES = {
         "Female (Sreymom)": "female",
         "Male (Piseth)": "male",
+        "Somleng Khmer Female (Telecom)": "somleng_female",
+        "Somleng Khmer Male (Telecom)": "somleng_male",
     }
 
     @classmethod
@@ -107,8 +128,9 @@ class KhmerTTSEngine:
 
     @staticmethod
     def _clean_text(text: str) -> str:
-        """Uses shared canonicalizer so spoken TTS text matches displayed kh_text subtitle 100% word-for-word."""
-        return normalize_dub_khmer_text(text)
+        """Uses Somleng normalizer and shared canonicalizer so spoken TTS matches text."""
+        normalized = SomlengKhmerNormalizer.normalize_text(text)
+        return normalize_dub_khmer_text(normalized)
 
     @staticmethod
     def _build_atempo_chain(speed: float) -> str:
@@ -195,6 +217,21 @@ class KhmerTTSEngine:
                     api_key=el_key,
                     voice_id=api_voice_id,
                     out_wav=out_wav,
+                )
+                if ok and Path(out_wav).exists() and Path(out_wav).stat().st_size > 500:
+                    return
+
+        # ប្រសិនបើជាសំឡេង Somleng Voice Gateway (https://github.com/somleng/somleng)
+        if str(profile_key).startswith("somleng") and db is not None:
+            s_url = db.get_setting("somleng_api_url", "").strip()
+            s_tok = db.get_setting("somleng_api_token", "").strip()
+            if s_url:
+                ok = SomlengVoiceEngine.synthesize_somleng(
+                    text=cleaned,
+                    voice_key=profile_key,
+                    out_wav=out_wav,
+                    api_url=s_url,
+                    api_token=s_tok,
                 )
                 if ok and Path(out_wav).exists() and Path(out_wav).stat().st_size > 500:
                     return

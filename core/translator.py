@@ -500,7 +500,10 @@ class ZHtoKHTranslator:
         }
 
         # សាកល្បងម៉ូដែលសកម្ម (Round-Robin across healthy keys + Auto-Failover ពេលមាន 429/503/404)
-        active_models = [self.model, *[m for m in self.gemini_models if m != self.model]]
+        if "3.1" in self.model:
+            active_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", self.model]
+        else:
+            active_models = [self.model, *[m for m in self.gemini_models if m != self.model]]
         max_key_attempts = min(max(2, self.key_pool.total_count), 8)
 
         for key_try in range(max_key_attempts):
