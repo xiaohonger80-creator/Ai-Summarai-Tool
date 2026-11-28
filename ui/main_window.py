@@ -219,6 +219,8 @@ class SettingsDialog(QDialog):
         self.preset_combo.blockSignals(True)
         if saved_api_url.lower() == "google-free" or saved_model.lower() == "google-free":
             self.preset_combo.setCurrentIndex(1)
+            if saved_api_url.lower() == "google-free" and not saved_keys_list:
+                saved_model = "google-free"
         elif "localhost" in saved_api_url or "127.0.0.1" in saved_api_url:
             self.preset_combo.setCurrentIndex(2)
         elif "api.openai.com" in saved_api_url:
@@ -228,6 +230,13 @@ class SettingsDialog(QDialog):
         else:
             self.preset_combo.setCurrentIndex(0)
         self.preset_combo.blockSignals(False)
+
+        # Ensure model dropdown matches if google-free
+        if saved_api_url.lower() == "google-free" and not saved_keys_list:
+            self._set_model_by_id("google-free")
+
+        self.api_url.textChanged.connect(self._on_api_url_changed)
+        self.model_name.currentIndexChanged.connect(self._on_model_changed)
 
         self.asr_combo = QComboBox()
         self.asr_combo.addItems(["Local Whisper (int8 CPU - Low RAM)", "Cloud Whisper API"])
@@ -330,11 +339,66 @@ class SettingsDialog(QDialog):
             self.api_url.setText("https://generativelanguage.googleapis.com/v1beta/openai/")
             self._set_model_by_id("gemini-2.5-flash")
 
+    def _on_api_url_changed(self, text: str):
+        url = text.strip().lower()
+        if url == "google-free":
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(1)
+            self.preset_combo.blockSignals(False)
+            self._set_model_by_id("google-free")
+        elif "localhost" in url or "127.0.0.1" in url:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(2)
+            self.preset_combo.blockSignals(False)
+        elif "googleapis.com" in url:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(4)
+            self.preset_combo.blockSignals(False)
+        elif "openai.com" in url:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(3)
+            self.preset_combo.blockSignals(False)
+
+    def _on_model_changed(self, idx: int):
+        mid = self.model_name.itemData(idx)
+        if not mid:
+            return
+        mid_str = str(mid).lower()
+        cur_url = self.api_url.text().strip().lower()
+        if mid_str == "google-free":
+            if cur_url != "google-free":
+                self.api_url.setText("google-free")
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(1)
+                self.preset_combo.blockSignals(False)
+        elif mid_str.startswith("gemini"):
+            if cur_url == "google-free" or cur_url == "":
+                self.api_url.setText("https://generativelanguage.googleapis.com/v1beta/openai/")
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(4)
+                self.preset_combo.blockSignals(False)
+        elif mid_str.startswith("qwen") or mid_str.startswith("llama") or mid_str.startswith("gemma"):
+            if cur_url == "google-free" or cur_url == "":
+                self.api_url.setText("http://localhost:11434/v1")
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(2)
+                self.preset_combo.blockSignals(False)
+        elif mid_str.startswith("gpt-"):
+            if cur_url == "google-free" or cur_url == "":
+                self.api_url.setText("https://api.openai.com/v1")
+                self.preset_combo.blockSignals(True)
+                self.preset_combo.setCurrentIndex(3)
+                self.preset_combo.blockSignals(False)
+
     def _save(self):
         try:
-            self.db.set_setting("api_url", self.api_url.text().strip())
+            final_url = self.api_url.text().strip()
+            final_model = self._get_current_model()
+            if final_url.lower() == "google-free":
+                final_model = "google-free"
+            self.db.set_setting("api_url", final_url)
             self.db.set_api_keys(self.api_key.toPlainText())
-            self.db.set_setting("model", self._get_current_model())
+            self.db.set_setting("model", final_model)
             self.db.set_setting("asr_mode", str(self.asr_combo.currentIndex()))
             self.db.set_setting("kh_voice_label", self.voice_combo.currentText())
             self.db.set_setting("ocr_y_pct", str(self.ocr_y_spin.value()))
@@ -749,6 +813,7 @@ class MainWindow(QMainWindow):
         self.act_tool_find_replace = self.tools_menu.addAction("🔍 កែពាក្យខុស (Find & Replace)", self._open_find_replace)
         self.act_tool_clean_zh = self.tools_menu.addAction("🧹 សម្អាតអក្សរចិនចេញពីតារាង (Clean Chinese in Script)", self._clean_chinese_from_khmer_script)
         self.act_tool_voice_clone = self.tools_menu.addAction("🎙️ ក្លូនសំឡេងមនុស្ស (Voice Clone)", self._open_voice_clone_studio)
+        self.act_tool_videofx = self.tools_menu.addAction("🎬 VideoFX Studio (3D LUTs, Masking & Text)", self._open_videofx_studio)
         self.act_tool_caption = self.tools_menu.addAction("🔥 ចំណងជើង & Hook សង្ខេប (AI Social Caption)", self._open_ai_caption)
         self.act_tool_redo = self.tools_menu.addAction("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps)", self._open_reset_project_dialog)
         self.workflow_submenu = self.tools_menu.addMenu("🔀 Workflow Views (មើលដំណើរការផ្ទាល់)")
@@ -2524,6 +2589,15 @@ class MainWindow(QMainWindow):
         dlg.voice_saved.connect(self._on_voice_cloned_or_selected)
         dlg.exec()
 
+    def _open_videofx_studio(self):
+        """បើកផ្ទាំង VideoFX Studio (3D LUTs, Masking, Animated Text)"""
+        try:
+            from ui.video_fx_studio import VideoFXStudioWindow
+            self._fx_studio = VideoFXStudioWindow(parent=self, initial_video_path=self.video_path)
+            self._fx_studio.show()
+        except Exception as e:
+            QMessageBox.critical(self, "VideoFX Studio Error", f"មិនអាចបើក VideoFX Studio បានទេ: {e}")
+
     def _on_voice_cloned_or_selected(self, voice_key: str):
         """ពេលរក្សាទុកសំឡេងក្លូនថ្មី ឬជ្រើសរើសសំឡេង -> Refresh តារាង Subtitle ភ្លាមៗ"""
         self._refresh_table()
@@ -3109,160 +3183,165 @@ class MainWindow(QMainWindow):
         default_voice = DEFAULT_VOICES.get(voice_label, "km-KH-SreymomNeural")
 
         def task(emit):
-            import subprocess
-            from core.transcriber import SpeechTranscriber
-            from core.translator import ZHtoKHTranslator
-            from core.tts_engine import KhmerTTSEngine
-            from core.media_engine import MediaEngine
+            try:
+                import subprocess
+                from core.transcriber import SpeechTranscriber
+                from core.translator import ZHtoKHTranslator
+                from core.tts_engine import KhmerTTSEngine
+                from core.media_engine import MediaEngine
 
-            asr = SpeechTranscriber()
-            translator = ZHtoKHTranslator(api_key=api_key, base_url=api_url, model=model, glossary=self.db.get_glossary())
-            tts = KhmerTTSEngine()
-            clip_dir = work_dir / "tts"
-            clip_dir.mkdir(parents=True, exist_ok=True)
+                asr = SpeechTranscriber()
+                translator = ZHtoKHTranslator(api_key=api_key, base_url=api_url, model=model, glossary=self.db.get_glossary())
+                tts = KhmerTTSEngine()
+                clip_dir = work_dir / "tts"
+                clip_dir.mkdir(parents=True, exist_ok=True)
 
-            total_gaps = len(gaps)
-            total_added_segs = 0
+                total_gaps = len(gaps)
+                total_added_segs = 0
 
-            # ក. បកប្រែបំពេញជួរដែលមានស្រាប់តែមិនទាន់បកប្រែ (Fill Untranslated Existing Lines)
-            untrans = [
-                s for s in self.db.get_segments(self.project_id)
-                if (s.get("zh_text") or "").strip() and not re.search(r"[\u1780-\u17ff]", s.get("kh_text") or "")
-            ]
-            if untrans:
-                emit(5, f"កំពុងបកប្រែបំពេញ {len(untrans)} ជួរដែលមិនទាន់បកប្រែ...")
-                from core.translator import strip_chinese_from_khmer
-                untrans_res = translator.translate_segments(untrans, stop_event=self._cancel_event)
-                for s in untrans:
-                    sid = s.get("id") or s.get("start_ms")
-                    if not sid:
-                        continue
-                    raw_k = untrans_res.get(sid, "") or untrans_res.get(s.get("start_ms"), "")
-                    clean_k = strip_chinese_from_khmer(raw_k) if raw_k else ""
-                    if clean_k and re.search(r"[\u1780-\u17ff]", clean_k):
-                        self.db.update_segment(sid, kh_text=clean_k, status="Ready")
-                        total_added_segs += 1
-
-            # ខ. ស្កេន និងកាត់សំឡេងចន្លោះទំនេរលើ Timeline (Scan Audio Gaps)
-            for g_idx, (g_start, g_end) in enumerate(gaps):
-                if self._cancel_event.is_set():
-                    return "⏹ បានផ្អាកការបំពេញចន្លោះ!"
-
-                dur_ms = g_end - g_start
-                if dur_ms < 600:
-                    continue
-
-                emit(int((g_idx / max(1, total_gaps)) * 75) + 10, f"កំពុងស្កេនចន្លោះ {g_idx+1}/{total_gaps} ({g_start//1000}s - {g_end//1000}s)...")
-
-                gap_wav = work_dir / f"_gap_{g_start}_{g_end}.wav"
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-ss", f"{g_start / 1000.0:.3f}",
-                    "-t", f"{dur_ms / 1000.0:.3f}",
-                    "-i", str(self.video_path),
-                    "-vn", "-acodec", "pcm_s16le",
-                    "-ar", "16000", "-ac", "1",
-                    str(gap_wav)
+                # ក. បកប្រែបំពេញជួរដែលមានស្រាប់តែមិនទាន់បកប្រែ (Fill Untranslated Existing Lines)
+                untrans = [
+                    s for s in self.db.get_segments(self.project_id)
+                    if (s.get("zh_text") or "").strip() and not re.search(r"[\u1780-\u17ff]", s.get("kh_text") or "")
                 ]
-                try:
-                    MediaEngine.run_ffmpeg_safe(cmd, fallback_cpu=False, cancel_event=self._cancel_event)
-                except Exception as ex:
-                    print(f"[Gap Slice Error] {ex}")
-                    continue
+                if untrans:
+                    emit(5, f"កំពុងបកប្រែបំពេញ {len(untrans)} ជួរដែលមិនទាន់បកប្រែ...")
+                    from core.translator import strip_chinese_from_khmer
+                    untrans_res = translator.translate_segments(untrans, stop_event=self._cancel_event)
+                    for s in untrans:
+                        sid = s.get("id")
+                        if not sid:
+                            continue
+                        raw_k = untrans_res.get(sid, "") or untrans_res.get(s.get("start_ms"), "")
+                        clean_k = strip_chinese_from_khmer(raw_k) if raw_k else ""
+                        if clean_k and re.search(r"[\u1780-\u17ff]", clean_k):
+                            self.db.update_segment(sid, kh_text=clean_k, status="Ready")
+                            total_added_segs += 1
 
-                if not gap_wav.exists() or gap_wav.stat().st_size <= 1000:
-                    continue
+                # ខ. ស្កេន និងកាត់សំឡេងចន្លោះទំនេរលើ Timeline (Scan Audio Gaps)
+                for g_idx, (g_start, g_end) in enumerate(gaps):
+                    if self._cancel_event.is_set():
+                        return "⏹ បានផ្អាកការបំពេញចន្លោះ!"
 
-                try:
-                    raw_items = asr.transcribe_local(str(gap_wav), model_size="base")
-                except Exception as asr_err:
-                    print(f"[Gap Transcribe Error] {asr_err}")
-                    raw_items = []
-
-                try:
-                    gap_wav.unlink(missing_ok=True)
-                except Exception:
-                    pass
-
-                if not raw_items:
-                    continue
-
-                adjusted_items = []
-                for it_idx, it in enumerate(raw_items):
-                    abs_s = g_start + it.get("start_ms", 0)
-                    abs_e = min(g_end, g_start + it.get("end_ms", 0))
-                    if abs_e - abs_s >= 350:
-                        seg_id = abs_s
-                        adjusted_items.append({
-                            "id": seg_id,
-                            "start_ms": abs_s,
-                            "end_ms": abs_e,
-                            "zh_text": it.get("zh_text", ""),
-                            "voice_override": it.get("voice_override", ""),
-                            "status": "Ready",
-                        })
-
-                if not adjusted_items:
-                    continue
-
-                emit(int((g_idx / max(1, total_gaps)) * 75) + 15, f"កំពុងបកប្រែ {len(adjusted_items)} ជួរក្នុងចន្លោះនេះ...")
-                from core.translator import strip_chinese_from_khmer
-                translated_map = translator.translate_segments(adjusted_items, stop_event=self._cancel_event)
-                for it in adjusted_items:
-                    sid = it.get("id") or it.get("start_ms")
-                    raw_k = (
-                        translated_map.get(sid, "")
-                        or translated_map.get(it.get("start_ms"), "")
-                        or it.get("kh_text", "")
-                    )
-                    it["kh_text"] = strip_chinese_from_khmer(raw_k)
-
-                self.db.append_segments(self.project_id, adjusted_items)
-                self.db.fix_all_overlaps(self.project_id)
-                total_added_segs += len(adjusted_items)
-
-            # គ. បង្កើតសំឡេងខ្មែរ (TTS) សម្រាប់គ្រប់ជួរដែលនៅខ្វះសំឡេង (Unvoiced Segments)
-            latest_segs = self.db.get_segments(self.project_id)
-            unvoiced_segs = [
-                s for s in latest_segs
-                if s.get("status") != "Voiced" and (s.get("kh_text") or "").strip()
-            ]
-            if unvoiced_segs or total_added_segs > 0:
-                emit(85, f"កំពុងបង្កើតសំឡេងខ្មែរសម្រាប់ {len(unvoiced_segs)} ជួរដែលនៅខ្វះ...")
-                from core.translator import strip_chinese_from_khmer
-                for s in unvoiced_segs:
-                    sid = s.get("id") or s.get("start_ms")
-                    if not sid:
+                    dur_ms = g_end - g_start
+                    if dur_ms < 600:
                         continue
-                    clean_kh = strip_chinese_from_khmer(s.get("kh_text") or "")
-                    if clean_kh:
-                        cpath = str(clip_dir / f"seg_{sid}.wav")
-                        d_ms = max(400, s.get("end_ms", 0) - s.get("start_ms", 0) + 300)
-                        voice = s.get("voice_override") or default_voice
-                        try:
-                            tts.generate_clip(clean_kh, voice, d_ms, cpath, db=self.db, speed_mult=getattr(self, "tts_speed_mult", 1.0))
-                            self.db.update_segment(sid, kh_text=clean_kh, tts_audio_path=cpath, status="Voiced")
-                        except Exception as e:
-                            print(f"[TTS Error in Gap] {e}")
 
-                emit(94, "កំពុងអាប់ដេតសំឡេងក្នុង Video Preview...")
-                try:
-                    tmp_mp4 = str(Path(f"data/workspace/proj_{self.project_id}") / "_tmp_preview.mp4")
-                    MediaEngine.build_fast_preview_video(
-                        self.video_path,
-                        self.db.get_segments(self.project_id),
-                        tmp_mp4,
-                        bgm_volume=0.0,
-                        voice_gain=2.2,
-                        edits=self.db.get_project_edits(self.project_id),
-                        sfx_events=self.db.get_sfx_events(self.project_id),
-                    )
-                except Exception as pe:
-                    print(f"[Preview Error] {pe}")
+                    emit(int((g_idx / max(1, total_gaps)) * 75) + 10, f"កំពុងស្កេនចន្លោះ {g_idx+1}/{total_gaps} ({g_start//1000}s - {g_end//1000}s)...")
 
-                return f"ជោគជ័យ! បានស្កេន បកប្រែ និងបញ្ចូលសំឡេង {total_added_segs} ជួរក្នុងចន្លោះ Timeline!"
-            else:
-                return "ពុំឃើញមានពាក្យនិយាយក្នុងចន្លោះដែលបានស្កេនទេ (អាចជាភ្លេង ឬសំឡេងស្ងាត់)។ អ្នកអាច Right-Click លើចន្លោះនោះដើម្បីបន្ថែមជួរនិយាយដោយដៃបាន!"
+                    gap_wav = work_dir / f"_gap_{g_start}_{g_end}.wav"
+                    cmd = [
+                        "ffmpeg", "-y",
+                        "-ss", f"{g_start / 1000.0:.3f}",
+                        "-t", f"{dur_ms / 1000.0:.3f}",
+                        "-i", str(self.video_path),
+                        "-vn", "-acodec", "pcm_s16le",
+                        "-ar", "16000", "-ac", "1",
+                        str(gap_wav)
+                    ]
+                    try:
+                        MediaEngine.run_ffmpeg_safe(cmd, fallback_cpu=False, cancel_event=self._cancel_event)
+                    except Exception as ex:
+                        print(f"[Gap Slice Error] {ex}")
+                        continue
+
+                    if not gap_wav.exists() or gap_wav.stat().st_size <= 1000:
+                        continue
+
+                    try:
+                        raw_items = asr.transcribe_local(str(gap_wav), model_size="base")
+                    except Exception as asr_err:
+                        print(f"[Gap Transcribe Error] {asr_err}")
+                        raw_items = []
+
+                    try:
+                        gap_wav.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
+                    if not raw_items:
+                        continue
+
+                    adjusted_items = []
+                    for it_idx, it in enumerate(raw_items):
+                        abs_s = g_start + it.get("start_ms", 0)
+                        abs_e = min(g_end, g_start + it.get("end_ms", 0))
+                        if abs_e - abs_s >= 350:
+                            seg_id = abs_s
+                            adjusted_items.append({
+                                "id": seg_id,
+                                "start_ms": abs_s,
+                                "end_ms": abs_e,
+                                "zh_text": it.get("zh_text", ""),
+                                "voice_override": it.get("voice_override", ""),
+                                "status": "Ready",
+                            })
+
+                    if not adjusted_items:
+                        continue
+
+                    emit(int((g_idx / max(1, total_gaps)) * 75) + 15, f"កំពុងបកប្រែ {len(adjusted_items)} ជួរក្នុងចន្លោះនេះ...")
+                    from core.translator import strip_chinese_from_khmer
+                    translated_map = translator.translate_segments(adjusted_items, stop_event=self._cancel_event)
+                    for it in adjusted_items:
+                        sid = it.get("id") or it.get("start_ms")
+                        raw_k = (
+                            translated_map.get(sid, "")
+                            or translated_map.get(it.get("start_ms"), "")
+                            or it.get("kh_text", "")
+                        )
+                        it["kh_text"] = strip_chinese_from_khmer(raw_k)
+
+                    self.db.append_segments(self.project_id, adjusted_items)
+                    self.db.fix_all_overlaps(self.project_id)
+                    total_added_segs += len(adjusted_items)
+
+                # គ. បង្កើតសំឡេងខ្មែរ (TTS) សម្រាប់គ្រប់ជួរដែលនៅខ្វះសំឡេង (Unvoiced Segments)
+                latest_segs = self.db.get_segments(self.project_id)
+                unvoiced_segs = [
+                    s for s in latest_segs
+                    if s.get("status") != "Voiced" and (s.get("kh_text") or "").strip()
+                ]
+                if unvoiced_segs or total_added_segs > 0:
+                    emit(85, f"កំពុងបង្កើតសំឡេងខ្មែរសម្រាប់ {len(unvoiced_segs)} ជួរដែលនៅខ្វះ...")
+                    from core.translator import strip_chinese_from_khmer
+                    for s in unvoiced_segs:
+                        sid = s.get("id") or s.get("start_ms")
+                        if not sid:
+                            continue
+                        clean_kh = strip_chinese_from_khmer(s.get("kh_text") or "")
+                        if clean_kh:
+                            cpath = str(clip_dir / f"seg_{sid}.wav")
+                            d_ms = max(400, s.get("end_ms", 0) - s.get("start_ms", 0) + 300)
+                            voice = s.get("voice_override") or default_voice
+                            try:
+                                tts.generate_clip(clean_kh, voice, d_ms, cpath, db=self.db, speed_mult=getattr(self, "tts_speed_mult", 1.0))
+                                self.db.update_segment(sid, kh_text=clean_kh, tts_audio_path=cpath, status="Voiced")
+                            except Exception as e:
+                                print(f"[TTS Error in Gap] {e}")
+
+                    emit(94, "កំពុងអាប់ដេតសំឡេងក្នុង Video Preview...")
+                    try:
+                        tmp_mp4 = str(Path(f"data/workspace/proj_{self.project_id}") / "_tmp_preview.mp4")
+                        MediaEngine.build_fast_preview_video(
+                            self.video_path,
+                            self.db.get_segments(self.project_id),
+                            tmp_mp4,
+                            bgm_volume=0.0,
+                            voice_gain=2.2,
+                            edits=self.db.get_project_edits(self.project_id),
+                            sfx_events=self.db.get_sfx_events(self.project_id),
+                        )
+                    except Exception as pe:
+                        print(f"[Preview Error] {pe}")
+
+                    return f"ជោគជ័យ! បានស្កេន បកប្រែ និងបញ្ចូលសំឡេង {total_added_segs} ជួរក្នុងចន្លោះ Timeline!"
+                else:
+                    return "ពុំឃើញមានពាក្យនិយាយក្នុងចន្លោះដែលបានស្កេនទេ (អាចជាភ្លេង ឬសំឡេងស្ងាត់)។ អ្នកអាច Right-Click លើចន្លោះនោះដើម្បីបន្ថែមជួរនិយាយដោយដៃបាន!"
+            except Exception as ex:
+                import traceback
+                traceback.print_exc()
+                return f"⚠️ ដំណើរការបំពេញចន្លោះបានរក្សាទុកទិន្នន័យ (Notice): {ex}"
 
         def on_done():
             self._refresh_table()

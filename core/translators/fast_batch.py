@@ -43,7 +43,10 @@ class FastBatchTranslator(BaseTranslator):
                 break
 
             batch_chunk = results[b_idx : b_idx + self.batch_size]
-            payload_lines = [{"id": s["id"], "text": s["text"]} for s in batch_chunk]
+            payload_lines = [
+                {"id": s.get("id", idx + 1), "text": s.get("text", s.get("zh_text", ""))}
+                for idx, s in enumerate(batch_chunk)
+            ]
 
             current_batch_no = (b_idx // self.batch_size) + 1
             if progress_cb:
@@ -60,16 +63,19 @@ class FastBatchTranslator(BaseTranslator):
                 if isinstance(items, list):
                     for it in items:
                         if isinstance(it, dict) and "id" in it and "translated" in it:
-                            mapped[int(it["id"])] = str(it["translated"]).strip()
+                            try:
+                                mapped[int(it["id"])] = str(it["translated"]).strip()
+                            except (ValueError, TypeError):
+                                pass
 
-            for s in batch_chunk:
-                sid = int(s["id"])
+            for idx, s in enumerate(batch_chunk):
+                sid = int(s.get("id", idx + 1))
                 if sid in mapped and mapped[sid]:
                     s["translated"] = mapped[sid]
                 else:
                     # Fallback single translation to avoid blank lines
-                    fallback_text = self.client.fallback_translate_single(s["text"], target_lang=target_lang)
-                    s["translated"] = fallback_text or s["text"]
+                    fallback_text = self.client.fallback_translate_single(s.get("text", s.get("zh_text", "")), target_lang=target_lang)
+                    s["translated"] = fallback_text or s.get("text", s.get("zh_text", ""))
 
             time.sleep(0.05)
 

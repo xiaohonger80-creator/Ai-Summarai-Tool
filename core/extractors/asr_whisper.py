@@ -28,7 +28,8 @@ class WhisperExtractor(BaseExtractor):
 
             dev = "cuda" if (self.device == "cuda" or (self.device == "auto" and torch.cuda.is_available())) else "cpu"
             ctype = "float16" if dev == "cuda" else "int8"
-            cpu_threads = 2 if dev == "cpu" else 4
+            cpu_cores = os.cpu_count() or 4
+            cpu_threads = max(1, min(2, cpu_cores // 2)) if dev == "cpu" else 4
 
             self.model = WhisperModel(
                 self.model_size,

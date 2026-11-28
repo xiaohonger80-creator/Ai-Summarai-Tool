@@ -17,4 +17,4 @@ class PipelineWorker(QThread):
             self.finished_ok.emit(str(msg or ""))
         except Exception as e:
             traceback.print_exc()
-            self.failed.emit(str(e))
+            self.failed.emit(f"កំហុសដំណើរការ (Process Error): {e}")

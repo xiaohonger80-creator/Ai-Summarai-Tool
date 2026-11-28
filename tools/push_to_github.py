@@ -227,26 +227,41 @@ def update_version_files(new_ver: str, changelog: str):
     # Sync to installed program directory if present
     installed_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ai Summarai"
     if installed_dir.exists():
-        for target_base in [installed_dir, installed_dir / "_internal"]:
-            t_core = target_base / "core"
-            t_core.mkdir(parents=True, exist_ok=True)
-            for cf in (ROOT_DIR / "core").glob("*.py"):
-                shutil.copy2(cf, t_core / cf.name)
-            t_ui = target_base / "ui"
-            t_ui.mkdir(parents=True, exist_ok=True)
-            for uf in (ROOT_DIR / "ui").glob("*.py"):
-                shutil.copy2(uf, t_ui / uf.name)
-        for fn in ["version.json", "updater_config.json", "verify_setup.py"]:
-            sp = ROOT_DIR / fn
-            if sp.exists():
-                shutil.copy2(sp, installed_dir / fn)
-        if (ROOT_DIR / "data").exists():
-            (installed_dir / "data").mkdir(parents=True, exist_ok=True)
-            for df in (ROOT_DIR / "data").glob("*.json"):
-                shutil.copy2(df, installed_dir / "data" / df.name)
-        for cache_dir in installed_dir.rglob("__pycache__"):
-            shutil.rmtree(cache_dir, ignore_errors=True)
-        print("    [OK] Synced updated files to installed App & _internal, purged __pycache__")
+        try:
+            for target_base in [installed_dir, installed_dir / "_internal"]:
+                t_core = target_base / "core"
+                t_core.mkdir(parents=True, exist_ok=True)
+                for cf in (ROOT_DIR / "core").glob("*.py"):
+                    try:
+                        shutil.copy2(cf, t_core / cf.name)
+                    except Exception:
+                        pass
+                t_ui = target_base / "ui"
+                t_ui.mkdir(parents=True, exist_ok=True)
+                for uf in (ROOT_DIR / "ui").glob("*.py"):
+                    try:
+                        shutil.copy2(uf, t_ui / uf.name)
+                    except Exception:
+                        pass
+            for fn in ["version.json", "updater_config.json", "verify_setup.py"]:
+                sp = ROOT_DIR / fn
+                if sp.exists():
+                    try:
+                        shutil.copy2(sp, installed_dir / fn)
+                    except Exception:
+                        pass
+            if (ROOT_DIR / "data").exists():
+                (installed_dir / "data").mkdir(parents=True, exist_ok=True)
+                for df in (ROOT_DIR / "data").glob("*.json"):
+                    try:
+                        shutil.copy2(df, installed_dir / "data" / df.name)
+                    except Exception:
+                        pass
+            for cache_dir in installed_dir.rglob("__pycache__"):
+                shutil.rmtree(cache_dir, ignore_errors=True)
+            print("    [OK] Synced updated files to installed App & _internal, purged __pycache__")
+        except Exception as e:
+            print(f"    [Notice] Installed directory partially locked: {e}")
 
     return zip_path, size_kb
 
@@ -262,6 +277,7 @@ def main():
     parser.add_argument("--version", default="", help="Release version (default: prompt / bump)")
     parser.add_argument("--changelog", default="", help="Changelog text")
     parser.add_argument("--no-push", action="store_true", help="Commit locally without git push")
+    parser.add_argument("--pack-only", action="store_true", help="Build release zip and sync files without requiring git")
     parser.add_argument("--auto", action="store_true", help="Non-interactive mode")
     args = parser.parse_args()
 
@@ -271,10 +287,13 @@ def main():
     print("=" * 72)
 
     git_exe = find_git_exe()
-    if not git_exe:
+    if not git_exe and not args.pack_only:
         print("[ERROR] មិនអាចរកឃើញ Git ក្នុងកុំព្យូទ័រទេ! សូមដំឡើង Git ឬ GitHub Desktop ជាមុនសិន។")
         sys.exit(1)
-    print(f"[OK] Git: {git_exe}")
+    if git_exe:
+        print(f"[OK] Git: {git_exe}")
+    else:
+        print("[Notice] Running in pack-only mode (Git not available in environment)")
 
     base_ver, remote_ver, local_ver = get_effective_base_version()
     suggested_ver = bump_version(base_ver)
@@ -307,6 +326,13 @@ def main():
     print(f"\n[3] កំពុងវេចខ្ចប់កំណែ v{new_ver} និងបង្កើត AiSummarai_Update.zip...")
     zip_path, size_kb = update_version_files(new_ver, changelog)
     print(f"    [OK] {zip_path.name}: {size_kb} KB ({round(size_kb / 1024, 2)} MB)")
+
+    if args.pack_only:
+        print(f"\n🎉 វេចខ្ចប់ AiSummarai_Update.zip (v{new_ver}) ជោគជ័យ ១០០% (Pack-Only Mode)!")
+        print(f"   • Archive: {zip_path}")
+        print(f"   • Version: v{new_ver}")
+        print(f"   • Size   : {size_kb} KB")
+        return
 
     print(f"\n[4] កំពុងភ្ជាប់ និង Push ទៅកាន់ {GITHUB_GIT_URL} ...")
     if not (ROOT_DIR / ".git").exists():

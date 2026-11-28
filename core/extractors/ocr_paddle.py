@@ -1,9 +1,23 @@
+import os
 import re
+import time
 import difflib
 import subprocess
+import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Callable, Optional
+
+# Limit thread pinning on low-spec PCs so OCR doesn't spike CPU to 95%-100%
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OPENBLAS_NUM_THREADS"] = "2"
+os.environ["MKL_NUM_THREADS"] = "2"
+os.environ["ORT_NUM_THREADS"] = "2"
+
 import cv2
+try:
+    cv2.setNumThreads(2)
+except Exception:
+    pass
 
 from core.extractors.base import BaseExtractor
 from core.schema import SubtitleSegment
@@ -89,6 +103,7 @@ class PaddleOCRExtractor(BaseExtractor):
 
         frame_step = max(1, int(fps / self.sample_fps))
         frame_idx = 0
+        prev_thumb = None
 
         raw_detections: List[Dict[str, Any]] = []
 
@@ -110,6 +125,23 @@ class PaddleOCRExtractor(BaseExtractor):
                     y_start = int(h * (1.0 - self.crop_bottom_pct))
                     crop = frame[y_start:h, 0:w]
 
+                    # CPU Protection: Fast Thumb Diff check to skip unchanged frames
+                    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+                    thumb = cv2.resize(gray, (160, 40), interpolation=cv2.INTER_NEAREST).astype(np.float32)
+
+                    if float(np.std(thumb)) < 3.0:
+                        frame_idx += 1
+                        continue
+
+                    if prev_thumb is not None:
+                        diff = float(np.mean(np.abs(thumb - prev_thumb)))
+                        if diff < 3.2:
+                            prev_thumb = thumb
+                            frame_idx += 1
+                            time.sleep(0.002)
+                            continue
+                    prev_thumb = thumb
+
                     lines = self._ocr_frame(crop)
                     valid_texts = [
                         txt for txt, score in lines
@@ -121,6 +153,9 @@ class PaddleOCRExtractor(BaseExtractor):
                             "sec": current_sec,
                             "text": combined_text,
                         })
+
+                    # Cooperative sleep 10ms to keep CPU usage < 50%
+                    time.sleep(0.010)
 
                     if progress_cb and total_frames > 0:
                         pct = min(85, int((frame_idx / total_frames) * 75) + 10)

@@ -135,8 +135,11 @@ class ZHtoKHTranslator:
             key=lambda x: len((x.get("zh_term") or x.get("src_term") or "").strip()),
             reverse=True,
         )
-        self.is_gemini = "googleapis.com" in self.base_url.lower() or (
-            bool(self.api_key) and (self.api_key.startswith("AIza") or self.api_key.startswith("AQ."))
+        is_free_mode = self.base_url.lower() == "google-free" or self.model.lower() == "google-free"
+        self.is_gemini = not is_free_mode and (
+            "googleapis.com" in self.base_url.lower() or (
+                bool(self.api_key) and (self.api_key.startswith("AIza") or self.api_key.startswith("AQ."))
+            )
         )
         if not self.model or self.model in ("", "default"):
             self.model = "google-free" if (not self.api_key or self.base_url.lower() == "google-free") else "gemini-2.5-flash"
@@ -1100,6 +1103,9 @@ class ZHtoKHTranslator:
                 if stop_event and stop_event.is_set():
                     break
                 gem_res = self._translate_chunk_gemini_direct(chk)
+                if not gem_res:
+                    # Instant fallback to free google translate batch when Gemini rate limit or network fails
+                    gem_res = self._translate_batch_free(chk, stop_event=stop_event)
                 chunk_map: Dict[int, str] = {}
                 for idx, s in enumerate(chk):
                     sid = self._safe_seg_id(s, idx + 1)

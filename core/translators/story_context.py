@@ -24,7 +24,10 @@ class StoryContextTranslator(BaseTranslator):
 
     def _extract_story_context(self, segments: List[Dict[str, Any]], target_lang: str) -> tuple[str, Dict[str, str]]:
         """Pre-pass over sample of transcript to deduce plot and character names."""
-        sample_text = "\n".join([f"{s['id']}: {s['text']}" for s in segments[:120]])
+        sample_text = "\n".join([
+            f"{s.get('id', idx + 1)}: {s.get('text', s.get('zh_text', ''))}"
+            for idx, s in enumerate(segments[:120])
+        ])
 
         prompt = (
             f"Analyze this Chinese movie/drama dialogue transcript:\n\n{sample_text}\n\n"
@@ -100,7 +103,10 @@ class StoryContextTranslator(BaseTranslator):
                 break
 
             batch_chunk = results[b_idx : b_idx + self.batch_size]
-            payload_lines = [{"id": s["id"], "text": s["text"]} for s in batch_chunk]
+            payload_lines = [
+                {"id": s.get("id", idx + 1), "text": s.get("text", s.get("zh_text", ""))}
+                for idx, s in enumerate(batch_chunk)
+            ]
 
             current_batch_no = (b_idx // self.batch_size) + 1
             if progress_cb:
@@ -116,15 +122,18 @@ class StoryContextTranslator(BaseTranslator):
                 if isinstance(items, list):
                     for it in items:
                         if isinstance(it, dict) and "id" in it and "translated" in it:
-                            mapped[int(it["id"])] = str(it["translated"]).strip()
+                            try:
+                                mapped[int(it["id"])] = str(it["translated"]).strip()
+                            except (ValueError, TypeError):
+                                pass
 
-            for s in batch_chunk:
-                sid = int(s["id"])
+            for idx, s in enumerate(batch_chunk):
+                sid = int(s.get("id", idx + 1))
                 if sid in mapped and mapped[sid]:
                     s["translated"] = mapped[sid]
                 else:
-                    fallback_text = self.client.fallback_translate_single(s["text"], target_lang=target_lang)
-                    s["translated"] = fallback_text or s["text"]
+                    fallback_text = self.client.fallback_translate_single(s.get("text", s.get("zh_text", "")), target_lang=target_lang)
+                    s["translated"] = fallback_text or s.get("text", s.get("zh_text", ""))
 
             time.sleep(0.05)
 
