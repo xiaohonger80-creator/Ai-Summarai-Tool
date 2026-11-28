@@ -741,99 +741,77 @@ class MainWindow(QMainWindow):
         top_bar.setObjectName("TopBar")
         top_bar.setFixedHeight(44)
         top_layout = QHBoxLayout(top_bar)
-        top_layout.setContentsMargins(10, 4, 12, 4)
-        top_layout.setSpacing(8)
+        top_layout.setContentsMargins(8, 4, 8, 4)
+        top_layout.setSpacing(5)
 
         # 1A. Left Group: Logo + Title + Filename Pill + GPU Status Badge
         logo_path = Path(__file__).resolve().parent.parent / "assets" / "icon.png"
         if logo_path.exists():
             self.lbl_logo = QLabel()
-            pix = QPixmap(str(logo_path)).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pix = QPixmap(str(logo_path)).scaled(26, 26, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.lbl_logo.setPixmap(pix)
             top_layout.addWidget(self.lbl_logo)
 
         self.lbl_title = QLabel()
         self.lbl_title.setObjectName("AppTitle")
-        self.lbl_title.setMinimumWidth(148)
+        self.lbl_title.setMinimumWidth(118)
         top_layout.addWidget(self.lbl_title)
 
         self.lbl_file = QLabel()
         self.lbl_file.setObjectName("FilePill")
         self.lbl_file.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         self.lbl_file.setFixedHeight(28)
-        self.lbl_file.setMaximumWidth(205)
+        self.lbl_file.setMaximumWidth(135)
         top_layout.addWidget(self.lbl_file)
 
         self.lbl_encoder = QLabel(tr(self.lang, "mode_fast_copy"))
         self.lbl_encoder.setStyleSheet(
             "background-color: #181C24; color: #00E5FF; border: 1px solid #252A36; "
-            "border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700;"
+            "border-radius: 6px; padding: 2px 6px; font-size: 10.5px; font-weight: 700;"
         )
         top_layout.addWidget(self.lbl_encoder)
 
-        # Extracted Quick-Action Buttons directly on Top Bar (Re-do Workflow, All-in-One Studio, VideoFX, Setup & AI)
-        self.btn_top_redo = QPushButton("🔄 កំណត់ឡើងវិញ" if self.lang == "kh" else "🔄 Re-do / Reset")
-        self.btn_top_redo.setObjectName("BtnGlass")
-        self.btn_top_redo.setFixedHeight(30)
-        self.btn_top_redo.setStyleSheet(
-            "QPushButton { background: #1F1624; border: 1.5px solid #F59E0B; border-radius: 6px; "
-            "padding: 2px 10px; color: #FBBF24; font-size: 11px; font-weight: 700; } "
-            "QPushButton:hover { background: #3B2314; border-color: #FDE68A; color: #FFFFFF; }"
+        # In-Window Responsive Workspace Switcher Pill Bar (No Separate Windows!)
+        ws_switcher = QFrame()
+        ws_switcher.setStyleSheet(
+            "QFrame { background: #11141B; border: 1px solid #283042; border-radius: 7px; }"
         )
-        self.btn_top_redo.setToolTip("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps — លុប ឬធ្វើឡើងវិញតាមជំហាន)")
-        self.btn_top_redo.clicked.connect(self._open_reset_project_dialog)
-        top_layout.addWidget(self.btn_top_redo)
+        ws_lay = QHBoxLayout(ws_switcher)
+        ws_lay.setContentsMargins(3, 2, 3, 2)
+        ws_lay.setSpacing(3)
+
+        self.btn_top_dub = QPushButton("🎙️ Dub")
+        self.btn_top_dub.setCheckable(True)
+        self.btn_top_dub.setChecked(True)
+        self.btn_top_dub.setFixedHeight(26)
+        self.btn_top_dub.setToolTip("🎙️ ទម្រង់កាត់ត និងបញ្ចូលសំឡេងស្តង់ដារ (Standard Dubbing Workspace)")
+        self.btn_top_dub.clicked.connect(lambda: self._switch_workspace_mode("dub"))
+        ws_lay.addWidget(self.btn_top_dub)
 
         self.btn_top_aio = QPushButton("🚀 AI Studio")
-        self.btn_top_aio.setObjectName("BtnGlass")
-        self.btn_top_aio.setFixedHeight(30)
-        self.btn_top_aio.setStyleSheet(
-            "QPushButton { background: #132238; border: 1.5px solid #3B82F6; border-radius: 6px; "
-            "padding: 2px 10px; color: #60A5FA; font-size: 11px; font-weight: 700; } "
-            "QPushButton:hover { background: #1E3A8A; border-color: #93C5FD; color: #FFFFFF; }"
-        )
-        self.btn_top_aio.setToolTip("🚀 បើកផ្ទាំង All-in-One AI Studio (Recap, Dubbing, Batch Auto-Splitter & VideoFX)")
-        self.btn_top_aio.clicked.connect(self._open_all_in_one_studio)
-        top_layout.addWidget(self.btn_top_aio)
+        self.btn_top_aio.setCheckable(True)
+        self.btn_top_aio.setFixedHeight(26)
+        self.btn_top_aio.setToolTip("🚀 ប្តូរផ្ទាំងធ្វើការទៅជា AI Studio (Extract, Story Recap, Multi-Speaker & Batch Auto-Split ក្នុងផ្ទាំងតែមួយ)")
+        self.btn_top_aio.clicked.connect(lambda: self._switch_workspace_mode("ai_studio"))
+        ws_lay.addWidget(self.btn_top_aio)
 
         self.btn_top_videofx = QPushButton("🎬 VideoFX")
-        self.btn_top_videofx.setObjectName("BtnGlass")
-        self.btn_top_videofx.setFixedHeight(30)
-        self.btn_top_videofx.setStyleSheet(
-            "QPushButton { background: #1A162B; border: 1.5px solid #A855F7; border-radius: 6px; "
-            "padding: 2px 10px; color: #C084FC; font-size: 11px; font-weight: 700; } "
-            "QPushButton:hover { background: #3B0764; border-color: #E9D5FF; color: #FFFFFF; }"
-        )
-        self.btn_top_videofx.setToolTip("🎬 បើកផ្ទាំង VideoFX Studio (3D LUTs, Masking & Animated Text)")
-        self.btn_top_videofx.clicked.connect(self._open_videofx_studio)
-        top_layout.addWidget(self.btn_top_videofx)
+        self.btn_top_videofx.setCheckable(True)
+        self.btn_top_videofx.setFixedHeight(26)
+        self.btn_top_videofx.setToolTip("🎬 ប្តូរផ្ទាំងធ្វើការទៅជា VideoFX (3D .cube LUTs, Masking & Animated .ASS Text ក្នុងផ្ទាំងតែមួយ)")
+        self.btn_top_videofx.clicked.connect(lambda: self._switch_workspace_mode("videofx"))
+        ws_lay.addWidget(self.btn_top_videofx)
 
-        self.btn_top_setup = QPushButton("🟢 Setup && AI")
-        self.btn_top_setup.setObjectName("BtnGlass")
-        self.btn_top_setup.setFixedHeight(30)
-        self.btn_top_setup.setStyleSheet(
-            "QPushButton { background: #0F241D; border: 1.5px solid #10B981; border-radius: 6px; "
-            "padding: 2px 10px; color: #34D399; font-size: 11px; font-weight: 700; } "
-            "QPushButton:hover { background: #064E3B; border-color: #6EE7B7; color: #FFFFFF; }"
-        )
-        self.btn_top_setup.setToolTip("🛠️ ពិនិត្យប្រព័ន្ធ & ម៉ូដែល AI (Setup & Models Manager — RTX GPU, FFmpeg & Ollama)")
-        self.btn_top_setup.clicked.connect(self._open_setup_manager_dialog)
-        top_layout.addWidget(self.btn_top_setup)
+        self.btn_top_combined = QPushButton("⚡ រួមគ្នា")
+        self.btn_top_combined.setCheckable(True)
+        self.btn_top_combined.setFixedHeight(26)
+        self.btn_top_combined.setToolTip("⚡ ដាក់បញ្ចូលគ្នាទាំងអស់ក្នុងផ្ទាំងតែមួយ (Visual Inspector + AI Studio + VideoFX + Batch Queue)")
+        self.btn_top_combined.clicked.connect(lambda: self._switch_workspace_mode("combined"))
+        ws_lay.addWidget(self.btn_top_combined)
+
+        top_layout.addWidget(ws_switcher)
 
         top_layout.addStretch()
-
-        # Direct Workflow View Button on Top Bar (1-Click Access)
-        self.btn_top_workflow = QPushButton("🔀 មើលដំណើរការ" if self.lang == "kh" else "🔀 Workflow View")
-        self.btn_top_workflow.setObjectName("BtnGlass")
-        self.btn_top_workflow.setFixedHeight(30)
-        self.btn_top_workflow.setStyleSheet(
-            "QPushButton { background: #141B29; border: 1.5px solid #00E5FF; border-radius: 6px; "
-            "padding: 2px 12px; color: #00E5FF; font-size: 11px; font-weight: 700; } "
-            "QPushButton:hover { background: #083344; border-color: #38BDF8; color: #FFFFFF; }"
-        )
-        self.btn_top_workflow.setToolTip("បើកផ្ទាំងមើលដំណើរការ Real-Time Workflow Views (Flowchart / Metrics / Live Logs)")
-        self.btn_top_workflow.clicked.connect(lambda: self._open_workflow_view(0, False))
-        top_layout.addWidget(self.btn_top_workflow)
 
         # 1B. Center Group: Consolidated Tools Menu Button
         self.btn_tools = QPushButton("🛠️ Tools ▾" if self.lang != "kh" else "🛠️ ឧបករណ៍ ▾")
@@ -883,8 +861,8 @@ class MainWindow(QMainWindow):
         self.active_series_profile_id = int(self.db.get_setting("active_series_profile_id", "0") or 0)
         self.combo_series_profile = QComboBox()
         self.combo_series_profile.setFixedHeight(28)
-        self.combo_series_profile.setMinimumWidth(145)
-        self.combo_series_profile.setMaximumWidth(185)
+        self.combo_series_profile.setMinimumWidth(115)
+        self.combo_series_profile.setMaximumWidth(145)
         self.combo_series_profile.setStyleSheet(
             "QComboBox { background: #181C24; border: 1px solid #3B4258; border-radius: 6px; "
             "padding: 2px 8px; color: #E2E8F0; font-size: 11px; font-weight: 700; } "
@@ -1116,35 +1094,60 @@ class MainWindow(QMainWindow):
 
         step_layout.addStretch()
 
-        # Quick-Access Studio Buttons extracted from Tools Menu
+        # Quick-Access Studio Buttons extracted from Tools Menu (placed on Step Bar so Top Bar never clips)
+        self.btn_top_redo = QPushButton("🔄 កំណត់ឡើងវិញ" if self.lang == "kh" else "🔄 Re-do")
+        self.btn_top_redo.setObjectName("BtnGlass")
+        self.btn_top_redo.setFixedHeight(28)
+        self.btn_top_redo.setStyleSheet(
+            "QPushButton { background: #1F1624; border: 1px solid #F59E0B; border-radius: 6px; "
+            "padding: 2px 8px; color: #FBBF24; font-size: 10.5px; font-weight: 700; } "
+            "QPushButton:hover { background: #3B2314; border-color: #FDE68A; color: #FFFFFF; }"
+        )
+        self.btn_top_redo.setToolTip("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps)")
+        self.btn_top_redo.clicked.connect(self._open_reset_project_dialog)
+        step_layout.addWidget(self.btn_top_redo)
+
+        self.btn_top_setup = QPushButton("🟢 Setup && AI")
+        self.btn_top_setup.setObjectName("BtnGlass")
+        self.btn_top_setup.setFixedHeight(28)
+        self.btn_top_setup.setStyleSheet(
+            "QPushButton { background: #0F241D; border: 1px solid #10B981; border-radius: 6px; "
+            "padding: 2px 8px; color: #34D399; font-size: 10.5px; font-weight: 700; } "
+            "QPushButton:hover { background: #064E3B; border-color: #6EE7B7; color: #FFFFFF; }"
+        )
+        self.btn_top_setup.setToolTip("🛠️ ពិនិត្យប្រព័ន្ធ & ម៉ូដែល AI (Setup & Models Manager)")
+        self.btn_top_setup.clicked.connect(self._open_setup_manager_dialog)
+        step_layout.addWidget(self.btn_top_setup)
+
         self.btn_step_projects = QPushButton("📁 Projects")
         self.btn_step_projects.setObjectName("BtnGlass")
-        self.btn_step_projects.setFixedHeight(30)
+        self.btn_step_projects.setFixedHeight(28)
         self.btn_step_projects.setToolTip("📁 បើកគម្រោងចាស់ៗ (Recent Projects)")
         self.btn_step_projects.clicked.connect(self._open_projects_dialog)
         step_layout.addWidget(self.btn_step_projects)
 
         self.btn_step_voice_clone = QPushButton("🎙️ Voice Clone")
         self.btn_step_voice_clone.setObjectName("BtnGlass")
-        self.btn_step_voice_clone.setFixedHeight(30)
+        self.btn_step_voice_clone.setFixedHeight(28)
         self.btn_step_voice_clone.setToolTip("🎙️ ក្លូនសំឡេងមនុស្សពិត (Voice Clone Studio)")
         self.btn_step_voice_clone.clicked.connect(self._open_voice_clone_studio)
         step_layout.addWidget(self.btn_step_voice_clone)
 
         self.btn_step_roles = QPushButton("🗣️ Roles")
         self.btn_step_roles.setObjectName("BtnGlass")
-        self.btn_step_roles.setFixedHeight(30)
+        self.btn_step_roles.setFixedHeight(28)
         self.btn_step_roles.setToolTip("🗣️ កំណត់សំឡេងតួអង្គ (Multi-Speaker Role Mapper)")
         self.btn_step_roles.clicked.connect(self._open_speaker_mapper_dialog)
         step_layout.addWidget(self.btn_step_roles)
 
         # Ghost utility buttons
-        self.btn_workflow_views = QPushButton("🔀 Workflow Views ▾")
+        self.btn_top_workflow = self.btn_step_roles  # alias safety
+        self.btn_workflow_views = QPushButton("🔀 Workflow ▾")
         self.btn_workflow_views.setObjectName("BtnGlass")
-        self.btn_workflow_views.setFixedHeight(30)
+        self.btn_workflow_views.setFixedHeight(28)
         self.btn_workflow_views.setStyleSheet(
-            "QPushButton { background: #141B29; border: 1.5px solid #38BDF8; border-radius: 6px; "
-            "padding: 2px 10px; color: #38BDF8; font-size: 11px; font-weight: 700; } "
+            "QPushButton { background: #141B29; border: 1px solid #38BDF8; border-radius: 6px; "
+            "padding: 2px 8px; color: #38BDF8; font-size: 10.5px; font-weight: 700; } "
             "QPushButton:hover { background: #102C42; border-color: #7DD3FC; color: #FFFFFF; }"
         )
         self.btn_workflow_views.setToolTip("បើកផ្ទាំងមើលដំណើរការកម្មវិធីផ្ទាល់ Real-Time (Flowchart / Metrics / Console Log / Mini HUD)")
@@ -1346,6 +1349,20 @@ class MainWindow(QMainWindow):
         script_toolbar.addWidget(self.combo_tts_speed)
         script_toolbar.addWidget(self.btn_bottom_blur)
         script_toolbar.addWidget(self.btn_clean_chinese)
+
+        self.btn_toggle_inline_batch = QPushButton("📦 Batch Split")
+        self.btn_toggle_inline_batch.setCheckable(True)
+        self.btn_toggle_inline_batch.setFixedHeight(27)
+        self.btn_toggle_inline_batch.setStyleSheet(
+            "QPushButton { background: #181C24; border: 1px solid #2A3142; border-radius: 5px; "
+            "padding: 2px 8px; color: #F4F6FB; font-size: 11px; font-weight: 600; } "
+            "QPushButton:hover { border-color: #3B82F6; color: #60A5FA; } "
+            "QPushButton:checked { background: #1E3A8A; border-color: #3B82F6; color: #FFFFFF; }"
+        )
+        self.btn_toggle_inline_batch.setToolTip("បើក/បិទ តារាង Batch Queue & Auto-Split Episodes (10m/15m/20m) ក្នុងផ្ទាំងតែមួយ")
+        self.btn_toggle_inline_batch.toggled.connect(self._on_toggle_inline_batch_drawer)
+        script_toolbar.addWidget(self.btn_toggle_inline_batch)
+
         script_toolbar.addStretch()
         script_toolbar.addWidget(self.combo_table_filter)
 
@@ -1391,6 +1408,13 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(table_container)
         left_v.addWidget(self.stack, 1)
 
+        # Inline Collapsible Batch Queue & Auto-Episode Splitter Drawer (No Separate Window!)
+        from ui.widgets.batch_queue_drawer import BatchQueueDrawer
+        self.inline_batch_drawer = BatchQueueDrawer(parent=self)
+        self.inline_batch_drawer.setVisible(False)
+        self.inline_batch_drawer.queue_item_selected.connect(self._on_inline_batch_item_selected)
+        left_v.addWidget(self.inline_batch_drawer)
+
         # --- PANE 2 (CENTER): Video Preview Player ---
         self.video_editor = VideoPreviewEditor()
         self.video_editor.set_database(self.db)
@@ -1402,9 +1426,9 @@ class MainWindow(QMainWindow):
         center_v = QVBoxLayout(center_pane)
         center_v.setContentsMargins(8, 6, 8, 8)
         center_v.setSpacing(4)
-        lbl_player_hdr = QLabel("🎬 Player — Live Khmer Dubbing Preview")
-        lbl_player_hdr.setObjectName("SubTitle")
-        center_v.addWidget(lbl_player_hdr)
+        self.lbl_player_hdr = QLabel("🎬 Player — Live Khmer Dubbing Preview")
+        self.lbl_player_hdr.setObjectName("SubTitle")
+        center_v.addWidget(self.lbl_player_hdr)
         center_v.addWidget(self.video_editor, 1)
 
         # ប៊ូតុង 🔔 SFX ▾ នៅជាប់ប៊ូតុងបញ្ជា Player (|< < ▶ > >|)
@@ -1416,25 +1440,39 @@ class MainWindow(QMainWindow):
         self.btn_sfx.clicked.connect(self._open_sfx_menu)
         self.video_editor.transport_layout.addWidget(self.btn_sfx)
 
-        # --- PANE 3 (RIGHT): Details & Visual Inspector (Logo | Subtitle | Audio FX | LUTs 20+ | Cut & Ratio | Mask) ---
+        # --- PANE 3 (RIGHT): Unified Responsive Inspector (Classic Visual | AI Studio | VideoFX | Combined) ---
         right_pane = QFrame()
         right_pane.setObjectName("TopBar")
-        right_pane.setMinimumWidth(320)
-        right_pane.setMaximumWidth(420)
+        right_pane.setMinimumWidth(325)
+        right_pane.setMaximumWidth(580)
         right_v = QVBoxLayout(right_pane)
         right_v.setContentsMargins(10, 8, 10, 8)
         right_v.setSpacing(6)
 
-        lbl_det = QLabel("⚙ Details & Visual Inspector")
-        lbl_det.setStyleSheet("color: #00C4CC; font-weight: 800; font-size: 13px;")
-        right_v.addWidget(lbl_det)
+        self.lbl_det = QLabel("⚙ Details & Visual Inspector")
+        self.lbl_det.setStyleSheet("color: #00C4CC; font-weight: 800; font-size: 13px;")
+        right_v.addWidget(self.lbl_det)
 
-        # Move the Preset Toolbar, 2x3 Tab Switcher, and 6-Tab Inspector into the dedicated Right Details Pane
-        right_v.addWidget(self.video_editor.preset_widget)
+        # Wrap Classic Visual Inspector into a container widget so it can switch/combine seamlessly
+        classic_inspector_w = QWidget()
+        classic_v = QVBoxLayout(classic_inspector_w)
+        classic_v.setContentsMargins(0, 0, 0, 0)
+        classic_v.setSpacing(6)
+        classic_v.addWidget(self.video_editor.preset_widget)
         if hasattr(self.video_editor, "inspector_nav_widget"):
-            right_v.addWidget(self.video_editor.inspector_nav_widget)
+            classic_v.addWidget(self.video_editor.inspector_nav_widget)
         self.video_editor.tabs.setMaximumHeight(16777215)
-        right_v.addWidget(self.video_editor.tabs, 1)
+        classic_v.addWidget(self.video_editor.tabs, 1)
+
+        from ui.widgets.integrated_workspace_panel import IntegratedInspectorContainer
+        self.integrated_inspector = IntegratedInspectorContainer(classic_inspector_w, parent=self)
+        self.integrated_inspector.mode_changed.connect(self._on_workspace_mode_changed)
+        self.integrated_inspector.render_preview_requested.connect(self._on_integrated_render_preview)
+        self.integrated_inspector.run_ai_pipeline_requested.connect(self._on_integrated_run_pipeline)
+        self.integrated_inspector.save_vfxproj_requested.connect(self._on_integrated_save_vfxproj)
+        self.integrated_inspector.load_vfxproj_requested.connect(self._on_integrated_load_vfxproj)
+        self.integrated_inspector.speaker_mapper_requested.connect(self._open_speaker_mapper_dialog)
+        right_v.addWidget(self.integrated_inspector, 1)
 
         # Original Video Sound Slider + Keep BGM Only Vocal Remover Toggle (Feature 2)
         self.btn_keep_bgm_only = QPushButton("🎼 Keep BGM Only (បំបាត់សំឡេងនិយាយដើម)")
@@ -1470,7 +1508,11 @@ class MainWindow(QMainWindow):
         bgm_box.addWidget(self.lbl_bgm_val)
         right_v.addLayout(bgm_box)
 
-        right_pane.setMinimumWidth(320)
+        right_pane.setMinimumWidth(325)
+        self.top_split = top_split
+        self.left_pane = left_pane
+        self.center_pane = center_pane
+        self.right_pane = right_pane
         top_split.addWidget(left_pane)
         top_split.addWidget(center_pane)
         top_split.addWidget(right_pane)
@@ -1478,6 +1520,7 @@ class MainWindow(QMainWindow):
         top_split.setStretchFactor(1, 30)
         top_split.setStretchFactor(2, 25)
         top_split.setSizes([540, 370, 340])
+        self._refresh_top_workspace_buttons("dub")
 
         # =====================================================================
         # 3. BOTTOM MULTI-TRACK VISUAL TIMELINE (Video + KH Sub + KH Dub Tracks)
@@ -2666,22 +2709,211 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _open_videofx_studio(self):
-        """បើកផ្ទាំង VideoFX Studio (3D LUTs, Masking, Animated Text)"""
-        try:
-            from ui.video_fx_studio import VideoFXStudioWindow
-            self._fx_studio = VideoFXStudioWindow(parent=self, initial_video_path=self.video_path)
-            self._fx_studio.show()
-        except Exception as e:
-            QMessageBox.critical(self, "VideoFX Studio Error", f"មិនអាចបើក VideoFX Studio បានទេ: {e}")
+        """ប្តូរទម្រង់ផ្ទាំងធ្វើការទៅជា VideoFX Studio ក្នុងផ្ទាំងតែមួយ (គ្មានផ្ទាំងលោតថ្មី)"""
+        self._switch_workspace_mode("videofx")
 
     def _open_all_in_one_studio(self):
-        """បើកផ្ទាំង 4-Zone All-in-One AI Video, Dubbing, Recap & FX Studio"""
-        try:
-            from ui.all_in_one_studio import AllInOneStudioWindow
-            self._aio_studio = AllInOneStudioWindow(parent=self, initial_video_path=self.video_path)
-            self._aio_studio.show()
-        except Exception as e:
-            QMessageBox.critical(self, "All-in-One Studio Error", f"មិនអាចបើក All-in-One Studio បានទេ: {e}")
+        """ប្តូរទម្រង់ផ្ទាំងធ្វើការទៅជា AI Studio ក្នុងផ្ទាំងតែមួយ (គ្មានផ្ទាំងលោតថ្មី)"""
+        self._switch_workspace_mode("ai_studio")
+
+    def _refresh_top_workspace_buttons(self, active_mode: str):
+        mapping = [
+            (getattr(self, "btn_top_dub", None), "dub", "#00E5FF"),
+            (getattr(self, "btn_top_aio", None), "ai_studio", "#3B82F6"),
+            (getattr(self, "btn_top_videofx", None), "videofx", "#A855F7"),
+            (getattr(self, "btn_top_combined", None), "combined", "#10B981"),
+        ]
+        for btn, key, color in mapping:
+            if btn is None:
+                continue
+            is_act = (active_mode == key)
+            btn.blockSignals(True)
+            btn.setChecked(is_act)
+            btn.blockSignals(False)
+            if is_act:
+                btn.setStyleSheet(
+                    f"QPushButton {{ background: {color}; color: #0B0D12; border: 1px solid {color}; "
+                    f"border-radius: 5px; padding: 2px 8px; font-size: 11px; font-weight: 800; }}"
+                )
+            else:
+                btn.setStyleSheet(
+                    "QPushButton { background: transparent; color: #CBD5E1; border: 1px solid transparent; "
+                    "border-radius: 5px; padding: 2px 8px; font-size: 11px; font-weight: 700; } "
+                    f"QPushButton:hover {{ color: {color}; background: #1A202C; }}"
+                )
+
+    def _switch_workspace_mode(self, mode: str):
+        """
+        ប្តូរទម្រង់ផ្ទាំងធ្វើការ (Responsive Workspace Layout) ក្នុងកម្មវិធីតែមួយ៖
+        - 'dub': ទម្រង់ស្តង់ដារ (42% Script | 34% Player | 24% Visual Inspector)
+        - 'ai_studio': ទម្រង់ AI Studio (Script + Inline Batch Auto-Splitter | Player | AI Extract/Recap/Dub Inspector)
+        - 'videofx': ទម្រង់ VideoFX Cinema (Compact Script | 46% Large Cinema Player | 3D .cube LUTs, Mask & .ASS Inspector)
+        - 'combined': ដាក់បញ្ចូលគ្នាទាំងអស់ក្នុងផ្ទាំងតែមួយ (Script + Batch | Player | Visual + AI Studio + VideoFX Tabs)
+        """
+        if hasattr(self, "integrated_inspector"):
+            self.integrated_inspector.set_workspace_mode(mode, emit_signal=False)
+        self._apply_responsive_workspace_layout(mode)
+
+    def _on_workspace_mode_changed(self, mode: str):
+        self._apply_responsive_workspace_layout(mode)
+
+    def _apply_responsive_workspace_layout(self, mode: str):
+        self._refresh_top_workspace_buttons(mode)
+        total_w = max(1100, self.width())
+
+        if mode == "dub":
+            if hasattr(self, "inline_batch_drawer"):
+                self.inline_batch_drawer.setVisible(False)
+            if hasattr(self, "btn_toggle_inline_batch"):
+                self.btn_toggle_inline_batch.blockSignals(True)
+                self.btn_toggle_inline_batch.setChecked(False)
+                self.btn_toggle_inline_batch.blockSignals(False)
+            if hasattr(self, "lbl_det"):
+                self.lbl_det.setText("⚙ Details & Visual Inspector — 🎙️ Dubbing Mode")
+            if hasattr(self, "lbl_player_hdr"):
+                self.lbl_player_hdr.setText("🎬 Player — Live Khmer Dubbing Preview")
+            if hasattr(self, "top_split"):
+                self.top_split.setSizes([int(total_w * 0.42), int(total_w * 0.33), int(total_w * 0.25)])
+            if hasattr(self, "status_lbl"):
+                self.status_lbl.setText("🎙️ បានប្តូរទៅទម្រង់ Dubbing Studio ស្តង់ដារ (ក្នុងផ្ទាំងតែមួយ)")
+
+        elif mode == "ai_studio":
+            if hasattr(self, "inline_batch_drawer"):
+                self.inline_batch_drawer.setVisible(True)
+            if hasattr(self, "btn_toggle_inline_batch"):
+                self.btn_toggle_inline_batch.blockSignals(True)
+                self.btn_toggle_inline_batch.setChecked(True)
+                self.btn_toggle_inline_batch.blockSignals(False)
+            if hasattr(self, "lbl_det"):
+                self.lbl_det.setText("🚀 AI Studio Inspector — Extract, Story Recap & Multi-Speaker")
+            if hasattr(self, "lbl_player_hdr"):
+                self.lbl_player_hdr.setText("🚀 AI Studio — Live Recap, Dubbing & Batch Auto-Split Workspace")
+            if hasattr(self, "top_split"):
+                self.top_split.setSizes([int(total_w * 0.38), int(total_w * 0.30), int(total_w * 0.32)])
+            if hasattr(self, "status_lbl"):
+                self.status_lbl.setText("🚀 បានប្តូរទៅទម្រង់ AI Studio (Extract, Story Recap, Multi-Speaker & Batch Auto-Split ក្នុងផ្ទាំងតែមួយ)")
+
+        elif mode == "videofx":
+            if hasattr(self, "inline_batch_drawer"):
+                self.inline_batch_drawer.setVisible(False)
+            if hasattr(self, "btn_toggle_inline_batch"):
+                self.btn_toggle_inline_batch.blockSignals(True)
+                self.btn_toggle_inline_batch.setChecked(False)
+                self.btn_toggle_inline_batch.blockSignals(False)
+            if hasattr(self, "lbl_det"):
+                self.lbl_det.setText("🎬 VideoFX Inspector — 3D .cube LUTs, Masking & .ASS Text")
+            if hasattr(self, "lbl_player_hdr"):
+                self.lbl_player_hdr.setText("🎬 VideoFX Cinema Canvas — Live 3D LUT, Mask & Animated Text Preview")
+            if hasattr(self, "top_split"):
+                self.top_split.setSizes([int(total_w * 0.24), int(total_w * 0.44), int(total_w * 0.32)])
+            if hasattr(self, "status_lbl"):
+                self.status_lbl.setText("🎬 បានប្តូរទៅទម្រង់ VideoFX Cinema (ពង្រីកអេក្រង់វីដេអូ + 3D .cube LUTs, Masking & Animated Text)")
+
+        elif mode == "combined":
+            if hasattr(self, "inline_batch_drawer"):
+                self.inline_batch_drawer.setVisible(True)
+            if hasattr(self, "btn_toggle_inline_batch"):
+                self.btn_toggle_inline_batch.blockSignals(True)
+                self.btn_toggle_inline_batch.setChecked(True)
+                self.btn_toggle_inline_batch.blockSignals(False)
+            if hasattr(self, "lbl_det"):
+                self.lbl_det.setText("⚡ All-in-One Combined Inspector (Visual + AI Studio + VideoFX)")
+            if hasattr(self, "lbl_player_hdr"):
+                self.lbl_player_hdr.setText("⚡ All-in-One Unified Studio — Dubbing, Recap, Batch & VideoFX")
+            if hasattr(self, "top_split"):
+                self.top_split.setSizes([int(total_w * 0.36), int(total_w * 0.31), int(total_w * 0.33)])
+            if hasattr(self, "status_lbl"):
+                self.status_lbl.setText("⚡ បានដាក់បញ្ចូលគ្នាទាំងអស់ (Visual Inspector + AI Studio + VideoFX + Batch Auto-Split) ក្នុងផ្ទាំងតែមួយ!")
+
+    def _on_toggle_inline_batch_drawer(self, checked: bool):
+        if hasattr(self, "inline_batch_drawer"):
+            self.inline_batch_drawer.setVisible(checked)
+
+    def _on_inline_batch_item_selected(self, item_dict: dict):
+        vpath = item_dict.get("video_path", "")
+        if vpath and Path(vpath).exists():
+            self._load_video(vpath)
+
+    def _on_integrated_render_preview(self, fx_settings: dict):
+        """អនុវត្តការកំណត់ 3D LUT, Mask, និង Animated Text ពីផ្ទាំង VideoFX/AI Studio ទៅលើ Video Player ផ្ទាល់"""
+        if not self.project_id:
+            self.status_lbl.setText("ℹ️ សូមបើកវីដេអូជាមុនសិន ដើម្បីអនុវត្ត VideoFX លើវីដេអូផ្ទាល់!")
+            return
+        edits = self.db.get_project_edits(self.project_id)
+        if fx_settings.get("bottom_cover_box") or fx_settings.get("mask_enabled"):
+            edits["mask_enabled"] = True
+            edits["mask_type"] = "blur"
+        if fx_settings.get("anti_cr_mirror"):
+            edits["ac_mirror"] = True
+        if fx_settings.get("anti_cr_zoom"):
+            edits["ac_zoom"] = 1.05
+        if fx_settings.get("font_size"):
+            edits["sub_font_size"] = int(fx_settings["font_size"])
+        self.db.save_project_edits(self.project_id, edits)
+        self.video_editor.load_project_edits(edits)
+        self._rebuild_smooth_preview()
+        self.status_lbl.setText("✨ បានអនុវត្ត VideoFX (3D LUT + Mask + Animated Text) ទៅលើ Live Video Preview រួចរាល់!")
+
+    def _on_integrated_run_pipeline(self, ai_settings: dict):
+        """ដំណើរការ AI Pipeline ពីផ្ទាំង AI Studio រួមបញ្ចូលគ្នា ដោយផ្ទាល់លើវីដេអូក្នុង MainWindow"""
+        ext_eng = (ai_settings.get("extraction_engine") or "").lower()
+        if "ocr" in ext_eng and "hybrid" not in ext_eng:
+            self.extract_mode.setCurrentIndex(1)
+        else:
+            self.extract_mode.setCurrentIndex(0)
+
+        dub_mode = (ai_settings.get("dub_mode") or "").lower()
+        if "recap" in dub_mode and hasattr(self, "combo_trans_style"):
+            self.combo_trans_style.setCurrentIndex(1)
+        elif hasattr(self, "combo_trans_style"):
+            self.combo_trans_style.setCurrentIndex(0)
+
+        if not self.video_path or not Path(self.video_path).exists():
+            self._browse_video()
+            if not self.video_path:
+                return
+        self._run_one_click_auto_pipeline()
+
+    def _on_integrated_save_vfxproj(self):
+        from core.project_manager import ProjectManager
+        default_dir = Path("data/studio_outputs")
+        default_dir.mkdir(parents=True, exist_ok=True)
+        stem = Path(self.video_path).stem if self.video_path else "studio_project"
+        out_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Unified Studio Project (.vfxproj)",
+            str(default_dir / f"{stem}.vfxproj"),
+            "VideoFX Studio Project (*.vfxproj)",
+        )
+        if not out_path:
+            return
+        segs = self.db.get_segments(self.project_id) if self.project_id else []
+        settings = self.integrated_inspector.inspector_tabs.get_settings() if hasattr(self, "integrated_inspector") else {}
+        batch_items = [it.to_dict() for it in self.inline_batch_drawer.batch_manager.items] if hasattr(self, "inline_batch_drawer") else []
+        saved = ProjectManager.save_project(
+            project_file_path=out_path,
+            video_path=self.video_path or "",
+            segments=segs,
+            settings=settings,
+            batch_items=batch_items,
+        )
+        self.status_lbl.setText(f"💾 បានរក្សាទុកគម្រោង .vfxproj រួចរាល់៖ {Path(saved).name}")
+
+    def _on_integrated_load_vfxproj(self):
+        from core.project_manager import ProjectManager
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Unified Studio Project (.vfxproj)",
+            "data/studio_outputs",
+            "VideoFX Studio Project (*.vfxproj)",
+        )
+        if not path or not Path(path).exists():
+            return
+        data = ProjectManager.load_project(path)
+        vpath = data.get("video_path", "")
+        if vpath and Path(vpath).exists():
+            self._load_video(vpath)
+        self.status_lbl.setText(f"📁 បានបើកគម្រោង .vfxproj រួចរាល់៖ {Path(path).name}")
 
     def _open_speaker_mapper_dialog(self):
         """បើកផ្ទាំង Multi-Speaker Role Mapper Dialog"""

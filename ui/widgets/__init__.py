@@ -8,10 +8,12 @@ from ui.widgets.preview_canvas import PreviewCanvas
 from ui.widgets.segment_table import SegmentTable
 from ui.widgets.inspector_tabs import InspectorTabs
 from ui.widgets.batch_queue_drawer import BatchQueueDrawer
+from ui.widgets.integrated_workspace_panel import IntegratedInspectorContainer
 
 __all__ = [
     "PreviewCanvas",
     "SegmentTable",
     "InspectorTabs",
     "BatchQueueDrawer",
+    "IntegratedInspectorContainer",
 ]
