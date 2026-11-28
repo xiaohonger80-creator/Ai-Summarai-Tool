@@ -1,5 +1,5 @@
 {
-  "app_version": "1.7.4",
+  "app_version": "1.7.5",
   "update_provider": "github",
   "github_repo_url": "https://github.com/xiaohonger80-creator/Ai-Summarai-Tool",
   "github_branch": "main",

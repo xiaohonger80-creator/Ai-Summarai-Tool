@@ -3,7 +3,35 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
 from pathlib import Path
+
+# Enforce UTF-8 encoding across Windows console streams
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
+def _install_global_excepthook():
+    """Global sys.excepthook logger writing unhandled exceptions to data/crash.log in UTF-8."""
+    def _hook(exc_type, exc_val, exc_tb):
+        err_text = "".join(traceback.format_exception(exc_type, exc_val, exc_tb))
+        try:
+            log_file = Path("data/crash.log")
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(err_text + "\n")
+        except Exception:
+            pass
+        sys.__excepthook__(exc_type, exc_val, exc_tb)
+
+    sys.excepthook = _hook
+
+
+_install_global_excepthook()
 
 # កម្រិត Threads សម្រាប់ ONNX / OpenMP / BLAS និង OpenCV ការពារ CPU 95%-100% លើម៉ាស៊ីន Spech ទាប
 os.environ["OMP_NUM_THREADS"] = "2"

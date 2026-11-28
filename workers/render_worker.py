@@ -133,6 +133,11 @@ class ExportRenderWorker(QThread):
                     self.progress.emit(pct, time_str)
 
             self._process.wait()
+            if self._process.stderr:
+                try:
+                    self._process.stderr.close()
+                except Exception:
+                    pass
 
             if self._is_cancelled:
                 return

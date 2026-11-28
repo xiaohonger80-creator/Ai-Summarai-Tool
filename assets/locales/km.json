@@ -1,0 +1,18 @@
+{
+  "app_title": "Ai Summarai — ស្ទូឌីយោ AI កាត់ត បកប្រែ បញ្ចូលសំឡេង & បែបផែនវីដេអូ",
+  "btn_open_video": "បើកវីដេអូ (Ctrl+O)",
+  "btn_render_preview": "មើលរូបភាពសាកល្បង (Render Preview)",
+  "btn_start_pipeline": "ចាប់ផ្តើមដំណើរការ (F5)",
+  "btn_cancel_pipeline": "បោះបង់ (Esc)",
+  "btn_export_srt": "នាំចេញ .SRT",
+  "btn_open_folder": "បើកថតឯកសារលទ្ធផល",
+  "tab_extract_translate": "១. ស្កេនអក្សរ & បកប្រែ",
+  "tab_recap_dubbing": "២. សង្ខេបរឿង & បញ្ចូលសំឡេង",
+  "tab_videofx_luts": "៣. អក្សររត់ ម៉ាស់ & ពណ៌ LUTs",
+  "status_ready": "រួចរាល់ — សូមជ្រើសរើសវីដេអូដើម្បីចាប់ផ្តើម។",
+  "col_id": "#",
+  "col_timecode": "ម៉ោង (Timecode)",
+  "col_speaker": "តួអង្គ / សំឡេង",
+  "col_original": "អត្ថបទដើម (ចិន/អង់គ្លេស)",
+  "col_translated": "អត្ថបទបកប្រែ / សាច់រឿងសង្ខេប (ខ្មែរ)"
+}

@@ -1,0 +1,18 @@
+{
+  "app_title": "Ai Summarai — All-in-One AI Video, Dubbing, Recap & FX Studio",
+  "btn_open_video": "Open Video (Ctrl+O)",
+  "btn_render_preview": "Render Preview Frame",
+  "btn_start_pipeline": "Start Pipeline (F5)",
+  "btn_cancel_pipeline": "Cancel (Esc)",
+  "btn_export_srt": "Export .SRT",
+  "btn_open_folder": "Open Output Folder",
+  "tab_extract_translate": "1. Extract & Translate",
+  "tab_recap_dubbing": "2. Story Recap & Dubbing",
+  "tab_videofx_luts": "3. Text FX, Mask & LUTs",
+  "status_ready": "Ready — Load a video to begin.",
+  "col_id": "#",
+  "col_timecode": "Timecode",
+  "col_speaker": "Speaker / Voice",
+  "col_original": "Original Text",
+  "col_translated": "Translated / Recap Script"
+}

@@ -813,7 +813,10 @@ class MainWindow(QMainWindow):
         self.act_tool_find_replace = self.tools_menu.addAction("🔍 កែពាក្យខុស (Find & Replace)", self._open_find_replace)
         self.act_tool_clean_zh = self.tools_menu.addAction("🧹 សម្អាតអក្សរចិនចេញពីតារាង (Clean Chinese in Script)", self._clean_chinese_from_khmer_script)
         self.act_tool_voice_clone = self.tools_menu.addAction("🎙️ ក្លូនសំឡេងមនុស្ស (Voice Clone)", self._open_voice_clone_studio)
+        self.act_tool_speaker_map = self.tools_menu.addAction("🗣️ កំណត់សំឡេងតួអង្គ (Multi-Speaker Role Mapper)", self._open_speaker_mapper_dialog)
+        self.act_tool_setup_mgr = self.tools_menu.addAction("🛠️ ពិនិត្យប្រព័ន្ធ & ម៉ូដែល AI (Setup & Models Manager)", self._open_setup_manager_dialog)
         self.act_tool_videofx = self.tools_menu.addAction("🎬 VideoFX Studio (3D LUTs, Masking & Text)", self._open_videofx_studio)
+        self.act_tool_aio_studio = self.tools_menu.addAction("🚀 All-in-One AI Studio (Recap, Dub & FX)", self._open_all_in_one_studio)
         self.act_tool_caption = self.tools_menu.addAction("🔥 ចំណងជើង & Hook សង្ខេប (AI Social Caption)", self._open_ai_caption)
         self.act_tool_redo = self.tools_menu.addAction("🔄 កំណត់ឡើងវិញ / Re-do Workflow (Reset Steps)", self._open_reset_project_dialog)
         self.workflow_submenu = self.tools_menu.addMenu("🔀 Workflow Views (មើលដំណើរការផ្ទាល់)")
@@ -2597,6 +2600,42 @@ class MainWindow(QMainWindow):
             self._fx_studio.show()
         except Exception as e:
             QMessageBox.critical(self, "VideoFX Studio Error", f"មិនអាចបើក VideoFX Studio បានទេ: {e}")
+
+    def _open_all_in_one_studio(self):
+        """បើកផ្ទាំង 4-Zone All-in-One AI Video, Dubbing, Recap & FX Studio"""
+        try:
+            from ui.all_in_one_studio import AllInOneStudioWindow
+            self._aio_studio = AllInOneStudioWindow(parent=self, initial_video_path=self.video_path)
+            self._aio_studio.show()
+        except Exception as e:
+            QMessageBox.critical(self, "All-in-One Studio Error", f"មិនអាចបើក All-in-One Studio បានទេ: {e}")
+
+    def _open_speaker_mapper_dialog(self):
+        """បើកផ្ទាំង Multi-Speaker Role Mapper Dialog"""
+        try:
+            from ui.dialogs.speaker_mapper_dialog import SpeakerMapperDialog
+            from config.settings import SubtitleSettings
+            cfg = SubtitleSettings.load()
+            dlg = SpeakerMapperDialog(speaker_map=cfg.get("speaker_map", {}), parent=self)
+            dlg.speaker_map_saved.connect(lambda m: SubtitleSettings.set("speaker_map", m))
+            dlg.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Speaker Mapper Error", f"មិនអាចបើក Speaker Mapper បានទេ: {e}")
+
+    def _open_setup_manager_dialog(self):
+        """បើកផ្ទាំង Setup & Model Manager Modal (FFmpeg, NVENC GPU, Ollama)"""
+        try:
+            from ui.dialogs.setup_manager_dialog import SetupManagerDialog
+            from config.settings import SubtitleSettings
+            cfg = SubtitleSettings.load()
+            dlg = SetupManagerDialog(
+                ollama_url=cfg.get("ollama_url", "http://localhost:11434"),
+                target_model=cfg.get("model_name", "qwen2.5:7b"),
+                parent=self,
+            )
+            dlg.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "Setup Manager Error", f"មិនអាចបើក Setup Manager បានទេ: {e}")
 
     def _on_voice_cloned_or_selected(self, voice_key: str):
         """ពេលរក្សាទុកសំឡេងក្លូនថ្មី ឬជ្រើសរើសសំឡេង -> Refresh តារាង Subtitle ភ្លាមៗ"""
