@@ -3,6 +3,7 @@
 workers/setup_worker.py
 Background QThread Worker for DependencyChecker tasks:
   - Auditing FFmpeg, Python AI packages, and Ollama models
+  - Auto-installing / starting Ollama (`install_ollama`)
   - Downloading portable FFmpeg binaries into ./bin/
   - Streaming Ollama model pulls (`POST /api/pull`) without freezing UI
 """
@@ -15,7 +16,7 @@ from core.dependency_checker import DependencyChecker
 
 class SetupWorker(QThread):
     """
-    Non-blocking QThread executing Setup Manager tasks (audit, pull_model, download_ffmpeg).
+    Non-blocking QThread executing Setup Manager tasks (audit, pull_model, install_ollama, download_ffmpeg).
     """
 
     progress_updated = Signal(int, str)
@@ -24,7 +25,7 @@ class SetupWorker(QThread):
 
     def __init__(
         self,
-        action: str = "audit",  # "audit" | "pull_model" | "download_ffmpeg"
+        action: str = "audit",  # "audit" | "pull_model" | "install_ollama" | "download_ffmpeg"
         ollama_url: str = "http://localhost:11434",
         model_name: str = "qwen2.5:7b",
         parent=None,
@@ -43,7 +44,7 @@ class SetupWorker(QThread):
 
     def run(self) -> None:
         if self.action == "audit":
-            self.progress_updated.emit(30, "Auditing FFmpeg, Hardware Encoders & Ollama...")
+            self.progress_updated.emit(30, "Auditing FFmpeg, Hardware GPU & Local AI...")
             report: Dict[str, Any] = DependencyChecker.check_all(
                 ollama_url=self.ollama_url,
                 target_model=self.model_name,
@@ -51,6 +52,15 @@ class SetupWorker(QThread):
             self.progress_updated.emit(100, "System audit completed.")
             self.audit_ready.emit(report)
             self.task_finished.emit(True, "Audit complete.")
+
+        elif self.action == "install_ollama":
+            ok = DependencyChecker.download_and_install_ollama(
+                progress_cb=lambda p, m: self.progress_updated.emit(p, m),
+                is_cancelled=self.is_cancelled,
+            )
+            report = DependencyChecker.check_all(self.ollama_url, self.model_name)
+            self.audit_ready.emit(report)
+            self.task_finished.emit(ok, "Ollama ready." if ok else "Ollama setup incomplete.")
 
         elif self.action == "pull_model":
             ok = DependencyChecker.pull_ollama_model(
@@ -61,7 +71,7 @@ class SetupWorker(QThread):
             )
             report = DependencyChecker.check_all(self.ollama_url, self.model_name)
             self.audit_ready.emit(report)
-            self.task_finished.emit(ok, f"Model '{self.model_name}' pull {'succeeded' if ok else 'failed'}.")
+            self.task_finished.emit(ok, f"Model '{self.model_name}' setup {'succeeded' if ok else 'incomplete'}.")
 
         elif self.action == "download_ffmpeg":
             ok = DependencyChecker.download_portable_ffmpeg(

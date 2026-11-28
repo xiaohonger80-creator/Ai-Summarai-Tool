@@ -213,37 +213,41 @@ def update_version_files(new_ver: str, changelog: str):
     VERSION_JSON.write_text(manifest_str, encoding="utf-8")
     (OUTPUT_DIR / "version.json").write_text(manifest_str, encoding="utf-8")
 
+    def _sync_tree_packages(target_base: Path):
+        for pkg in ("core", "ui", "workers", "config", "assets"):
+            src_pkg = ROOT_DIR / pkg
+            if not src_pkg.exists():
+                continue
+            for src_file in src_pkg.rglob("*"):
+                if src_file.is_dir() or "__pycache__" in src_file.parts or src_file.suffix.lower() in (".pyc", ".pyo"):
+                    continue
+                rel = src_file.relative_to(ROOT_DIR)
+                dst_file = target_base / rel
+                try:
+                    dst_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src_file, dst_file)
+                except Exception:
+                    pass
+
     # Sync dist/AiSummarai if present
     dist_dir = ROOT_DIR / "dist" / "AiSummarai"
     if dist_dir.exists():
-        for sub in ("core", "ui"):
-            dst = dist_dir / sub
-            dst.mkdir(parents=True, exist_ok=True)
-            for f in (ROOT_DIR / sub).glob("*.py"):
-                shutil.copy2(f, dst / f.name)
-        shutil.copy2(VERSION_JSON, dist_dir / "version.json")
-        shutil.copy2(CONFIG_FILE, dist_dir / "updater_config.json")
+        _sync_tree_packages(dist_dir)
+        for fn in ("version.json", "updater_config.json", "main.py", "video_fx_main.py", "USER_GUIDE_KH_EN.md"):
+            sp = ROOT_DIR / fn
+            if sp.exists():
+                try:
+                    shutil.copy2(sp, dist_dir / fn)
+                except Exception:
+                    pass
 
     # Sync to installed program directory if present
     installed_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Ai Summarai"
     if installed_dir.exists():
         try:
             for target_base in [installed_dir, installed_dir / "_internal"]:
-                t_core = target_base / "core"
-                t_core.mkdir(parents=True, exist_ok=True)
-                for cf in (ROOT_DIR / "core").glob("*.py"):
-                    try:
-                        shutil.copy2(cf, t_core / cf.name)
-                    except Exception:
-                        pass
-                t_ui = target_base / "ui"
-                t_ui.mkdir(parents=True, exist_ok=True)
-                for uf in (ROOT_DIR / "ui").glob("*.py"):
-                    try:
-                        shutil.copy2(uf, t_ui / uf.name)
-                    except Exception:
-                        pass
-            for fn in ["version.json", "updater_config.json", "verify_setup.py"]:
+                _sync_tree_packages(target_base)
+            for fn in ["version.json", "updater_config.json", "verify_setup.py", "main.py", "video_fx_main.py", "USER_GUIDE_KH_EN.md"]:
                 sp = ROOT_DIR / fn
                 if sp.exists():
                     try:

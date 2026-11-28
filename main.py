@@ -89,7 +89,7 @@ if getattr(sys, "frozen", False):
     import importlib.machinery as _imp_machinery
 
     class _HotUpdateDiskFinder:
-        _PREFIXES = ("core", "ui")
+        _PREFIXES = ("core", "ui", "workers", "config")
 
         @classmethod
         def find_spec(cls, fullname, path=None, target=None):
